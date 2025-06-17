@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка (Улучшенные свайпы + WASD)</title>
+    <title>Змейка с рекордами</title>
     <style>
         body {
             margin: 0;
@@ -18,11 +18,41 @@
             font-family: Arial, sans-serif;
         }
         
+        #start-screen {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+        
+        #start-screen h1 {
+            color: #4CAF50;
+        }
+        
+        #player-name {
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+            width: 80%;
+        }
+        
+        #start-btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        
         #game-container {
             position: relative;
             width: 100%;
             max-width: 400px;
             aspect-ratio: 1/1;
+            display: none;
         }
         
         #game-canvas {
@@ -40,6 +70,28 @@
             color: white;
             font-size: 20px;
             user-select: none;
+        }
+        
+        #leaderboard {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 120px;
+        }
+        
+        #leaderboard h3 {
+            margin: 0 0 5px 0;
+            font-size: 14px;
+        }
+        
+        #leaderboard ol {
+            padding-left: 20px;
+            margin: 0;
+            font-size: 12px;
         }
         
         #controls-info {
@@ -75,13 +127,24 @@
             border: none;
             border-radius: 5px;
             font-size: 18px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
+    <div id="start-screen">
+        <h1>Змейка</h1>
+        <input type="text" id="player-name" placeholder="Введите ваше имя">
+        <button id="start-btn">Начать игру</button>
+    </div>
+
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
         <div id="score">0</div>
+        <div id="leaderboard">
+            <h3>Топ игроков:</h3>
+            <ol id="top-players"></ol>
+        </div>
         <div id="controls-info">Свайпы / WASD</div>
         
         <div id="game-over">
@@ -92,23 +155,18 @@
     </div>
 
     <script>
-        // Инициализация игры
+        // Элементы интерфейса
+        const startScreen = document.getElementById('start-screen');
+        const gameContainer = document.getElementById('game-container');
+        const playerNameInput = document.getElementById('player-name');
+        const startBtn = document.getElementById('start-btn');
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
         const scoreElement = document.getElementById('score');
         const gameOverElement = document.getElementById('game-over');
         const finalScoreElement = document.getElementById('final-score');
         const restartBtn = document.getElementById('restart-btn');
-        
-        // Устанавливаем размер canvas
-        function resizeCanvas() {
-            const container = document.getElementById('game-container');
-            canvas.width = container.offsetWidth;
-            canvas.height = container.offsetHeight;
-        }
-        
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        const topPlayersList = document.getElementById('top-players');
         
         // Параметры игры
         const gridSize = 20;
@@ -120,6 +178,21 @@
         let gameSpeed = 150;
         let gameLoop;
         let gameActive = false;
+        let playerName = '';
+        
+        // Инициализация игры
+        function init() {
+            startBtn.addEventListener('click', startGame);
+            restartBtn.addEventListener('click', startGame);
+            loadLeaderboard();
+        }
+        
+        // Установка размеров canvas
+        function resizeCanvas() {
+            const container = document.getElementById('game-container');
+            canvas.width = container.offsetWidth;
+            canvas.height = container.offsetHeight;
+        }
         
         // Инициализация змейки
         function initSnake() {
@@ -234,14 +307,23 @@
             draw();
         }
         
-        function gameOver() {
+        async function gameOver() {
             clearInterval(gameLoop);
             finalScoreElement.textContent = `Счёт: ${score}`;
             gameOverElement.style.display = 'flex';
             gameActive = false;
+            
+            // Сохраняем результат
+            await saveScore();
+            // Обновляем таблицу лидеров
+            await loadLeaderboard();
         }
         
         function startGame() {
+            playerName = playerNameInput.value.trim() || 'Игрок';
+            startScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+            
             score = 0;
             scoreElement.textContent = score;
             gameSpeed = 150;
@@ -250,6 +332,7 @@
             gameOverElement.style.display = 'none';
             gameActive = false;
             
+            resizeCanvas();
             initSnake();
             generateFood();
             draw();
@@ -279,7 +362,6 @@
                 case 's': handleInput('down'); break;
                 case 'a': handleInput('left'); break;
                 case 'd': handleInput('right'); break;
-                // Стрелки тоже оставляем для совместимости
                 case 'arrowup': handleInput('up'); break;
                 case 'arrowdown': handleInput('down'); break;
                 case 'arrowleft': handleInput('left'); break;
@@ -287,11 +369,11 @@
             }
         });
         
-        // Улучшенное управление свайпами (для мобильных)
+        // Управление свайпами (для мобильных)
         let touchStartX = 0;
         let touchStartY = 0;
         let isSwiping = false;
-        const SWIPE_THRESHOLD = 30; // Минимальное расстояние для срабатывания свайпа
+        const SWIPE_THRESHOLD = 30;
 
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
@@ -312,9 +394,7 @@
             const diffX = touchStartX - touchEndX;
             const diffY = touchStartY - touchEndY;
             
-            // Определяем направление только если свайп достаточно длинный
             if (Math.abs(diffX) > SWIPE_THRESHOLD || Math.abs(diffY) > SWIPE_THRESHOLD) {
-                // Определяем основное направление (горизонтальное или вертикальное)
                 if (Math.abs(diffX) > Math.abs(diffY)) {
                     if (diffX > SWIPE_THRESHOLD) {
                         handleInput('left');
@@ -339,9 +419,43 @@
             isSwiping = false;
         }, { passive: false });
         
-        restartBtn.addEventListener('click', startGame);
+        // Работа с API бэкенда
+        async function saveScore() {
+            try {
+                const response = await fetch('http://localhost:5000/api/save_score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        player_name: playerName, 
+                        score: score 
+                    })
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Ошибка сохранения:', error);
+                return null;
+            }
+        }
         
-        startGame();
+        async function loadLeaderboard() {
+            try {
+                const response = await fetch('http://localhost:5000/api/get_scores');
+                const scores = await response.json();
+                
+                topPlayersList.innerHTML = '';
+                scores.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.textContent = `${item.player}: ${item.score}`;
+                    topPlayersList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Ошибка загрузки рекордов:', error);
+            }
+        }
+        
+        // Запуск игры при загрузке страницы
+        window.addEventListener('load', init);
+        window.addEventListener('resize', resizeCanvas);
     </script>
 </body>
 </html>
