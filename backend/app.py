@@ -1,33 +1,33 @@
 from flask import Flask, request, jsonify
 import sqlite3
 from datetime import datetime
-from flask_cors import CORS  # Для обработки CORS-запросов
+from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Разрешаем запросы с любого домена (для разработки)
+CORS(app)  # Разрешаем запросы с любого домена
 
-# Инициализация базы данных
-def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS scores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            player_name TEXT NOT NULL,
-            score INTEGER NOT NULL,
-            date TEXT NOT NULL
-        )
-    ''')
-    conn.commit()
-    conn.close()
+# Конфигурация базы данных
+DATABASE = 'database.db'
 
-# Подключение к базе данных
 def get_db_connection():
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
 
-# API для сохранения результата
+def init_db():
+    with app.app_context():
+        db = get_db_connection()
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS scores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_name TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                date TEXT NOT NULL
+            )
+        ''')
+        db.commit()
+        db.close()
+
 @app.route('/api/save_score', methods=['POST'])
 def save_score():
     data = request.get_json()
@@ -36,39 +36,35 @@ def save_score():
         return jsonify({'error': 'Invalid data'}), 400
     
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
+        db = get_db_connection()
+        db.execute('''
             INSERT INTO scores (player_name, score, date)
             VALUES (?, ?, ?)
         ''', (data['player_name'], data['score'], datetime.now().isoformat()))
-        conn.commit()
-        return jsonify({'status': 'success', 'id': cursor.lastrowid})
+        db.commit()
+        return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
-        conn.close()
+        db.close()
 
-# API для получения топ-10 результатов
 @app.route('/api/get_scores', methods=['GET'])
 def get_scores():
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT player_name, score 
+        db = get_db_connection()
+        scores = db.execute('''
+            SELECT player_name as player, score 
             FROM scores 
             ORDER BY score DESC 
             LIMIT 10
-        ''')
-        scores = cursor.fetchall()
+        ''').fetchall()
         return jsonify([dict(row) for row in scores])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
-        conn.close()
+        db.close()
 
-# Запуск сервера
+# Для Render нужно указать порт 10000
 if __name__ == '__main__':
-    init_db()  # Создаем таблицу при первом запуске
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    init_db()
+    app.run(host='0.0.0.0', port=10000)  # Render использует порт 10000
