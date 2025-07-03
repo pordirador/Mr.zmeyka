@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Змейка с рекордами</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        
+        /* Главное меню */
+        #main-menu {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 400px;
+        }
+        
+        #main-menu h1 {
+            color: #4CAF50;
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+        }
+        
+        .menu-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .menu-btn:hover {
+            background-color: #45a049;
+        }
+        
+        /* Окно ввода никнейма */
+        #nickname-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        #nickname-form {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 350px;
+            text-align: center;
+        }
+        
+        #nickname-form h2 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        #nickname-input {
+            width: 100%;
+            padding: 12px;
+            margin: 15px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        /* Игровое поле */
+        #game-container {
+            display: none;
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1/1;
+        }
+        
+        #game-canvas {
+            background-color: #222;
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        
+        #score {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black;
+        }
+        
+        /* Таблица рекордов */
+        #leaderboard {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            max-width: 150px;
+        }
+        
+        #leaderboard h3 {
+            margin-bottom: 8px;
+            font-size: 1rem;
+            text-align: center;
+        }
+        
+        #top-players {
+            list-style-type: none;
+        }
+        
+        #top-players li {
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+        
+        /* Экран окончания игры */
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            color: white;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #game-over h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        
+        #final-score {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+        }
+        
+        /* Адаптация для мобильных */
+        @media (max-width: 500px) {
+            #main-menu {
+                padding: 20px;
+            }
+            
+            #leaderboard {
+                max-width: 120px;
+                padding: 8px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Главное меню -->
+    <div id="main-menu">
+        <h1>Змейка</h1>
+        <button id="play-btn" class="menu-btn">Играть</button>
+        <button id="leaderboard-btn" class="menu-btn">Таблица рекордов</button>
+        <button id="how-to-play-btn" class="menu-btn">Как играть</button>
+    </div>
+    
+    <!-- Окно ввода никнейма -->
+    <div id="nickname-modal">
+        <div id="nickname-form">
+            <h2>Введите ваш никнейм</h2>
+            <input type="text" id="nickname-input" placeholder="Мой игровой ник" maxlength="15">
+            <button id="start-game-btn" class="menu-btn">Начать игру</button>
+        </div>
+    </div>
+    
+    <!-- Игровое поле -->
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="score">0</div>
+        <div id="leaderboard">
+            <h3>Лучшие игроки</h3>
+            <ol id="top-players"></ol>
+        </div>
+        
+        <!-- Экран окончания игры -->
+        <div id="game-over">
+            <h2>Игра окончена!</h2>
+            <div id="final-score">Счёт: 0</div>
+            <button id="restart-btn" class="menu-btn">Играть снова</button>
+            <button id="menu-btn" class="menu-btn" style="margin-top: 15px; background: #f44336;">В меню</button>
+        </div>
+    </div>
+    
+    <!-- Как играть (модальное окно) -->
+    <div id="how-to-play-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100;">
+        <div style="background: white; padding: 20px; border-radius: 10px; max-width: 400px; width: 90%;">
+            <h2 style="margin-bottom: 15px; color: #4CAF50;">Как играть</h2>
+            <p style="margin-bottom: 10px;"><strong>Управление:</strong></p>
+            <ul style="margin-bottom: 20px; padding-left: 20px;">
+                <li style="margin-bottom: 8px;">На компьютере: клавиши WASD или стрелки</li>
+                <li style="margin-bottom: 8px;">На телефоне: свайпы в нужном направлении</li>
+            </ul>
+            <p style="margin-bottom: 15px;"><strong>Цель:</strong> Управляйте змейкой, собирайте еду и набирайте очки!</p>
+            <button id="close-how-to-play" style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">Понятно</button>
+        </div>
+    </div>
+
+    <script>
+        // ========== ЭЛЕМЕНТЫ ИНТЕРФЕЙСА ==========
+        const mainMenu = document.getElementById('main-menu');
+        const playBtn = document.getElementById('play-btn');
+        const leaderboardBtn = document.getElementById('leaderboard-btn');
+        const howToPlayBtn = document.getElementById('how-to-play-btn');
+        
+        const nicknameModal = document.getElementById('nickname-modal');
+        const nicknameInput = document.getElementById('nickname-input');
+        const startGameBtn = document.getElementById('start-game-btn');
+        
+        const gameContainer = document.getElementById('game-container');
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const leaderboardElement = document.getElementById('leaderboard');
+        const topPlayersList = document.getElementById('top-players');
+        
+        const gameOverElement = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        const menuBtn = document.getElementById('menu-btn');
+        
+        const howToPlayModal = document.getElementById('how-to-play-modal');
+        const closeHowToPlayBtn = document.getElementById('close-how-to-play');
+        
+        // ========== НАСТРОЙКИ ИГРЫ ==========
+        const API_URL = 'https://your-render-app.onrender.com'; // Замените на ваш URL бэкенда
+        const gridSize = 20;
+        let snake = [];
+        let food = {};
+        let direction = 'none';
+        let score = 0;
+        let gameSpeed = 150;
+        let gameLoop;
+        let gameActive = false;
+        let playerName = '';
+        
+        // ========== ИНИЦИАЛИЗАЦИЯ ==========
+        function init() {
+            // Настройка обработчиков событий
+            playBtn.addEventListener('click', showNicknameModal);
+            leaderboardBtn.addEventListener('click', showLeaderboard);
+            howToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'flex');
+            closeHowToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'none');
+            
+            startGameBtn.addEventListener('click', startGame);
+            restartBtn.addEventListener('click', startGame);
+            menuBtn.addEventListener('click', returnToMenu);
+            
+            // Загрузка таблицы лидеров
+            loadLeaderboard();
+            
+            // Инициализация размеров canvas
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        }
+        
+        // ========== ФУНКЦИИ ИНТЕРФЕЙСА ==========
+        function showNicknameModal() {
+            nicknameModal.style.display = 'flex';
+            nicknameInput.focus();
+        }
+        
+        function showLeaderboard() {
+            // Можно добавить отдельное окно с расширенной таблицей лидеров
+            alert('Таблица рекордов загружается...');
+            loadLeaderboard();
+        }
+        
+        function returnToMenu() {
+            gameContainer.style.display = 'none';
+            mainMenu.style.display = 'block';
+            clearInterval(gameLoop);
+        }
+        
+        // ========== ИГРОВЫЕ ФУНКЦИИ ==========
+        function resizeCanvas() {
+            canvas.width = gameContainer.offsetWidth;
+            canvas.height = gameContainer.offsetHeight;
+        }
+        
+        function initSnake() {
+            snake = [];
+            const startX = Math.floor(canvas.width / gridSize / 2) * gridSize;
+            const startY = Math.floor(canvas.height / gridSize / 2) * gridSize;
+            
+            for (let i = 3; i >= 0; i--) {
+                snake.push({ x: startX - i * gridSize, y: startY });
+            }
+        }
+        
+        function generateFood() {
+            const maxX = Math.floor(canvas.width / gridSize) - 1;
+            const maxY = Math.floor(canvas.height / gridSize) - 1;
+            
+            let validPosition = false;
+            let attempts = 0;
+            
+            while (!validPosition && attempts < 100) {
+                food = {
+                    x: Math.floor(Math.random() * maxX) * gridSize,
+                    y: Math.floor(Math.random() * maxY) * gridSize
+                };
+                
+                validPosition = true;
+                
+                for (let segment of snake) {
+                    if (segment.x === food.x && segment.y === food.y) {
+                        validPosition = false;
+                        break;
+                    }
+                }
+                
+                attempts++;
+            }
+        }
+        
+        function draw() {
+            // Очистка canvas
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Отрисовка змейки
+            snake.forEach((segment, index) => {
+                ctx.fillStyle = index === 0 ? '#4CAF50' : '#8BC34A';
+                ctx.fillRect(segment.x, segment.y, gridSize - 1, gridSize - 1);
+            });
+            
+            // Отрисовка еды
+            ctx.fillStyle = '#FF5722';
+            ctx.beginPath();
+            ctx.arc(food.x + gridSize/2, food.y + gridSize/2, gridSize/2 - 1, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function update() {
+            if (direction === 'none') return;
+            
+            const head = { ...snake[0] };
+            
+            // Движение головы
+            switch (direction) {
+                case 'up': head.y -= gridSize; break;
+                case 'down': head.y += gridSize; break;
+                case 'left': head.x -= gridSize; break;
+                case 'right': head.x += gridSize; break;
+            }
+            
+            // Проверка столкновений
+            if (head.x < 0 || head.y < 0 || head.x >= canvas.width || head.y >= canvas.height) {
+                gameOver();
+                return;
+            }
+            
+            for (let i = 1; i < snake.length; i++) {
+                if (snake[i].x === head.x && snake[i].y === head.y) {
+                    gameOver();
+                    return;
+                }
+            }
+            
+            // Добавление новой головы
+            snake.unshift(head);
+            
+            // Проверка съедания еды
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                scoreElement.textContent = score;
+                
+                // Увеличение скорости каждые 50 очков
+                if (score % 50 === 0 && gameSpeed > 50) {
+                    gameSpeed -= 10;
+                    clearInterval(gameLoop);
+                    gameLoop = setInterval(gameStep, gameSpeed);
+                }
+                
+                generateFood();
+            } else {
+                snake.pop(); // Удаление хвоста, если не съели еду
+            }
+        }
+        
+        function gameStep() {
+            update();
+            draw();
+        }
+        
+        async function gameOver() {
+            clearInterval(gameLoop);
+            finalScoreElement.textContent = `Счёт: ${score}`;
+            gameOverElement.style.display = 'flex';
+            gameActive = false;
+            
+            // Сохранение результата
+            await saveScore();
+            // Обновление таблицы лидеров
+            await loadLeaderboard();
+        }
+        
+        function startGame() {
+            // Получение никнейма
+            playerName = nicknameInput.value.trim() || 'Игрок';
+            nicknameModal.style.display = 'none';
+            
+            // Настройка игры
+            mainMenu.style.display = 'none';
+            gameContainer.style.display = 'block';
+            gameOverElement.style.display = 'none';
+            
+            score = 0;
+            scoreElement.textContent = score;
+            gameSpeed = 150;
+            direction = 'none';
+            gameActive = true;
+            
+            // Инициализация игровых элементов
+            resizeCanvas();
+            initSnake();
+            generateFood();
+            draw();
+            
+            // Запуск игрового цикла
+            if (gameLoop) clearInterval(gameLoop);
+            gameLoop = setInterval(gameStep, gameSpeed);
+        }
+        
+        // ========== УПРАВЛЕНИЕ ==========
+        function handleInput(newDirection) {
+            if (!gameActive) return;
+            
+            // Запрет на разворот на 180 градусов
+            if (
+                (newDirection === 'up' && direction !== 'down') ||
+                (newDirection === 'down' && direction !== 'up') ||
+                (newDirection === 'left' && direction !== 'right') ||
+                (newDirection === 'right' && direction !== 'left')
+            ) {
+                direction = newDirection;
+            }
+        }
+        
+        // Клавиатура (WASD и стрелки)
+        document.addEventListener('keydown', (e) => {
+            switch (e.key.toLowerCase()) {
+                case 'w': case 'arrowup': handleInput('up'); break;
+                case 's': case 'arrowdown': handleInput('down'); break;
+                case 'a': case 'arrowleft': handleInput('left'); break;
+                case 'd': case 'arrowright': handleInput('right'); break;
+            }
+        });
+        
+        // Свайпы на мобильных устройствах
+        let touchStartX = 0;
+        let touchStartY = 0;
+        const SWIPE_THRESHOLD = 30;
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const diffX = touchStartX - touch.clientX;
+            const diffY = touchStartY - touch.clientY;
+            
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                if (diffX > SWIPE_THRESHOLD) handleInput('left');
+                else if (diffX < -SWIPE_THRESHOLD) handleInput('right');
+            } else {
+                if (diffY > SWIPE_THRESHOLD) handleInput('up');
+                else if (diffY < -SWIPE_THRESHOLD) handleInput('down');
+            }
+        }, { passive: false });
+        
+        // ========== РАБОТА С API ==========
+        async function saveScore() {
+            if (!playerName || score === 0) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/save_score`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        player_name: playerName, 
+                        score: score 
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Ошибка сервера');
+                return await response.json();
+            } catch (error) {
+                console.error('Ошибка сохранения:', error);
+                // Локальное сохранение, если бэкенд недоступен
+                saveScoreLocally();
+                return null;
+            }
+        }
+        
+        function saveScoreLocally() {
+            const scores = JSON.parse(localStorage.getItem('snake_scores') || []);
+            scores.push({ player: playerName, score: score });
+            scores.sort((a, b) => b.score - a.score);
+            localStorage.setItem('snake_scores', scores.slice(0, 10));
+        }
+        
+        async function loadLeaderboard() {
+            try {
+                const response = await fetch(`${API_URL}/api/get_scores`);
+                let scores = await response.json();
+                
+                // Если бэкенд недоступен, используем локальные данные
+                if (!scores || !Array.isArray(scores)) {
+                    scores = JSON.parse(localStorage.getItem('snake_scores') || []);
+                }
+                
+                // Очистка и заполнение таблицы лидеров
+                topPlayersList.innerHTML = '';
+                scores.slice(0, 5).forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.textContent = `${index + 1}. ${item.player}: ${item.score}`;
+                    topPlayersList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Ошибка загрузки рекордов:', error);
+                topPlayersList.innerHTML = '<li>Данные не загружены</li>';
+            }
+        }
+        
+        // Запуск игры при загрузке страницы
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
