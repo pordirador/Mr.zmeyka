@@ -132,14 +132,26 @@
     </style>
 </head>
 <body>
-    body>
     <div id="start-screen">
         <h1>Змейка</h1>
         <input type="text" id="player-name" placeholder="Введите ваше имя">
         <button id="start-btn">Начать игру</button>
     </div>
 
-    <div
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="score">0</div>
+        <div id="leaderboard">
+            <h3>Лучшие игроки</h3>
+            <ol id="top-players"></ol>
+        </div>
+        <div id="controls-info">Управление: WASD или свайпы</div>
+        <div id="game-over">
+            <h2>Игра окончена!</h2>
+            <div id="final-score">Счёт: 0</div>
+            <button id="restart-btn">Играть снова</button>
+        </div>
+    </div>
 
     <script>
         // Элементы интерфейса
@@ -154,6 +166,9 @@
         const finalScoreElement = document.getElementById('final-score');
         const restartBtn = document.getElementById('restart-btn');
         const topPlayersList = document.getElementById('top-players');
+        
+        // URL вашего бэкенда на Render (ЗАМЕНИТЕ НА СВОЙ!)
+        const API_URL = 'https://your-app-name.onrender.com';
         
         // Параметры игры
         const gridSize = 20;
@@ -176,9 +191,8 @@
         
         // Установка размеров canvas
         function resizeCanvas() {
-            const container = document.getElementById('game-container');
-            canvas.width = container.offsetWidth;
-            canvas.height = container.offsetHeight;
+            canvas.width = gameContainer.offsetWidth;
+            canvas.height = gameContainer.offsetHeight;
         }
         
         // Инициализация змейки
@@ -409,7 +423,7 @@
         // Работа с API бэкенда
         async function saveScore() {
             try {
-                const response = await fetch('http://localhost:5000/api/save_score', {
+                const response = await fetch(`${API_URL}/api/save_score`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -426,7 +440,7 @@
         
         async function loadLeaderboard() {
             try {
-                const response = await fetch('http://localhost:5000/api/get_scores');
+                const response = await fetch(`${API_URL}/api/get_scores`);
                 const scores = await response.json();
                 
                 topPlayersList.innerHTML = '';
@@ -437,6 +451,8 @@
                 });
             } catch (error) {
                 console.error('Ошибка загрузки рекордов:', error);
+                // Временно покажем заглушку
+                topPlayersList.innerHTML = '<li>Ошибка загрузки</li>';
             }
         }
         
