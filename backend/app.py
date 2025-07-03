@@ -65,6 +65,15 @@ def get_scores():
         db.close()
 
 # Для Render нужно указать порт 10000
+@app.route('/')
+def home():
+    return jsonify({
+        "status": "API is working",
+        "endpoints": {
+            "save_score": "/api/save_score (POST)",
+            "get_scores": "/api/get_scores (GET)"
+        }
+    })
 if __name__ == '__main__':
     init_db()
     app.run(host='0.0.0.0', port=10000)  # Render использует порт 10000
