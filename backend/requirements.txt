@@ -1,1 +1,4 @@
-Flask
+flask==2.3.2
+flask-cors==3.0.10
+sqlite3==2.6.0  # Обычно встроен в Python, но лучше указать
+gunicorn==20.1.0  # Для деплоя на Render
