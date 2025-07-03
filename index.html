@@ -174,6 +174,47 @@
             margin-bottom: 30px;
         }
         
+        /* Анимация загрузки */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        
+        /* Уведомления */
+        .toast-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 4px;
+            z-index: 1000;
+            animation: slide-in 0.3s ease-out;
+        }
+        
+        .fade-out {
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        @keyframes slide-in {
+            from { bottom: -50px; opacity: 0; }
+            to { bottom: 20px; opacity: 1; }
+        }
+        
         /* Адаптация для мобильных */
         @media (max-width: 500px) {
             #main-menu {
@@ -183,6 +224,11 @@
             #leaderboard {
                 max-width: 120px;
                 padding: 8px 10px;
+            }
+            
+            .no-scores small {
+                opacity: 0.7;
+                font-size: 0.8em;
             }
         }
     </style>
@@ -210,7 +256,7 @@
         <canvas id="game-canvas"></canvas>
         <div id="score">0</div>
         <div id="leaderboard">
-            <h3>Лучшие игроки</h3>
+            <h3>Лучшие игроки <span id="dataSourceBadge"></span></h3>
             <ol id="top-players"></ol>
         </div>
         
@@ -254,6 +300,7 @@
         const scoreElement = document.getElementById('score');
         const leaderboardElement = document.getElementById('leaderboard');
         const topPlayersList = document.getElementById('top-players');
+        const dataSourceBadge = document.getElementById('dataSourceBadge');
         
         const gameOverElement = document.getElementById('game-over');
         const finalScoreElement = document.getElementById('final-score');
@@ -274,12 +321,16 @@
         let gameLoop;
         let gameActive = false;
         let playerName = '';
+        let refreshInterval;
         
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
         function init() {
             // Настройка обработчиков событий
             playBtn.addEventListener('click', showNicknameModal);
-            leaderboardBtn.addEventListener('click', showLeaderboard);
+            leaderboardBtn.addEventListener('click', () => {
+                topPlayersList.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Обновление...</li>';
+                loadLeaderboard();
+            });
             howToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'flex');
             closeHowToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'none');
             
@@ -287,12 +338,12 @@
             restartBtn.addEventListener('click', startGame);
             menuBtn.addEventListener('click', returnToMenu);
             
-            // Загрузка таблицы лидеров
-            loadLeaderboard();
-            
             // Инициализация размеров canvas
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
+            
+            // Загрузка таблицы лидеров
+            loadLeaderboard();
         }
         
         // ========== ФУНКЦИИ ИНТЕРФЕЙСА ==========
@@ -301,16 +352,28 @@
             nicknameInput.focus();
         }
         
-        function showLeaderboard() {
-            // Можно добавить отдельное окно с расширенной таблицей лидеров
-            alert('Таблица рекордов загружается...');
-            loadLeaderboard();
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+        
+        function setDataSourceIndicator(source) {
+            dataSourceBadge.textContent = source === 'server' ? '🌐' : '📱';
+            dataSourceBadge.title = source === 'server' ? 'Данные с сервера' : 'Локальные данные';
         }
         
         function returnToMenu() {
             gameContainer.style.display = 'none';
             mainMenu.style.display = 'block';
             clearInterval(gameLoop);
+            clearInterval(refreshInterval);
         }
         
         // ========== ИГРОВЫЕ ФУНКЦИИ ==========
@@ -462,6 +525,12 @@
             // Запуск игрового цикла
             if (gameLoop) clearInterval(gameLoop);
             gameLoop = setInterval(gameStep, gameSpeed);
+            
+            // Загрузка таблицы лидеров
+            loadLeaderboard();
+            
+            // Автообновление таблицы лидеров каждые 30 секунд
+            refreshInterval = setInterval(loadLeaderboard, 30000);
         }
         
         // ========== УПРАВЛЕНИЕ ==========
@@ -516,11 +585,12 @@
             }
         }, { passive: false });
         
-        // ========== РАБОТА С API ==========
+        // ========== РАБОТА С API И ЛОКАЛЬНЫМИ ДАННЫМИ ==========
         async function saveScore() {
             if (!playerName || score === 0) return;
             
             try {
+                // Пытаемся сохранить на сервер
                 const response = await fetch(`${API_URL}/api/save_score`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -531,43 +601,95 @@
                 });
                 
                 if (!response.ok) throw new Error('Ошибка сервера');
+                
+                // Всегда сохраняем локально
+                saveScoreLocally();
                 return await response.json();
+                
             } catch (error) {
                 console.error('Ошибка сохранения:', error);
-                // Локальное сохранение, если бэкенд недоступен
-                saveScoreLocally();
+                saveScoreLocally(); // Сохраняем локально при ошибке
                 return null;
             }
         }
         
         function saveScoreLocally() {
-            const scores = JSON.parse(localStorage.getItem('snake_scores') || []);
-            scores.push({ player: playerName, score: score });
+            const scores = JSON.parse(localStorage.getItem('snake_scores') || '[]');
+            scores.push({ 
+                player: playerName, 
+                score: score,
+                date: new Date().toISOString() 
+            });
+            
+            // Сортируем по убыванию и сохраняем топ-10
             scores.sort((a, b) => b.score - a.score);
-            localStorage.setItem('snake_scores', scores.slice(0, 10));
+            localStorage.setItem('snake_scores', JSON.stringify(scores.slice(0, 10)));
         }
         
         async function loadLeaderboard() {
             try {
-                const response = await fetch(`${API_URL}/api/get_scores`);
-                let scores = await response.json();
+                // Показываем состояние загрузки
+                topPlayersList.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Загрузка...</li>';
                 
-                // Если бэкенд недоступен, используем локальные данные
-                if (!scores || !Array.isArray(scores)) {
-                    scores = JSON.parse(localStorage.getItem('snake_scores') || []);
+                // Проверка доступности сети
+                if (!navigator.onLine) {
+                    throw new Error('Отсутствует интернет-соединение');
+                }
+
+                // Пытаемся получить данные с сервера
+                const response = await fetch(`${API_URL}/api/get_scores`, {
+                    signal: AbortSignal.timeout(5000) // Таймаут 5 секунд
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Ошибка сервера: ${response.status}`);
                 }
                 
-                // Очистка и заполнение таблицы лидеров
+                const scores = await response.json();
+                
+                // Если данные получены, но пустые - показываем заглушку
+                if (!scores || !Array.isArray(scores) || scores.length === 0) {
+                    return showLocalScores();
+                }
+                
+                // Очищаем и заполняем таблицу
                 topPlayersList.innerHTML = '';
                 scores.slice(0, 5).forEach((item, index) => {
                     const li = document.createElement('li');
-                    li.textContent = `${index + 1}. ${item.player}: ${item.score}`;
+                    li.textContent = `${index + 1}. ${item.player || 'Игрок'}: ${item.score || 0}`;
                     topPlayersList.appendChild(li);
                 });
+                
+                setDataSourceIndicator('server');
+                
             } catch (error) {
                 console.error('Ошибка загрузки рекордов:', error);
-                topPlayersList.innerHTML = '<li>Данные не загружены</li>';
+                // Показываем локальные данные при ошибке
+                showLocalScores();
+                
+                // Показываем информативное сообщение
+                if (error.message.includes('Отсутствует интернет')) {
+                    showToast('Используются локальные рекорды (нет сети)');
+                }
             }
+        }
+
+        function showLocalScores() {
+            const localScores = JSON.parse(localStorage.getItem('snake_scores') || '[]');
+            
+            if (localScores.length === 0) {
+                topPlayersList.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
+                return;
+            }
+            
+            topPlayersList.innerHTML = '';
+            localScores.slice(0, 5).forEach((item, index) => {
+                const li = document.createElement('li');
+                li.textContent = `${index + 1}. ${item.player}: ${item.score}`;
+                topPlayersList.appendChild(li);
+            });
+            
+            setDataSourceIndicator('local');
         }
         
         // Запуск игры при загрузке страницы
