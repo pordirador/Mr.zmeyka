@@ -174,6 +174,97 @@
             margin-bottom: 30px;
         }
         
+        /* Анимация загрузки */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        
+        /* Уведомления */
+        .toast-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 4px;
+            z-index: 1000;
+            animation: slide-in 0.3s ease-out;
+        }
+        
+        .fade-out {
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        @keyframes slide-in {
+            from { bottom: -50px; opacity: 0; }
+            to { bottom: 20px; opacity: 1; }
+        }
+        
+        /* Модальное окно таблицы рекордов */
+        #leaderboard-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        #leaderboard-modal div {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 400px;
+            width: 90%;
+            max-height: 70vh;
+            overflow-y: auto;
+            animation: modal-open 0.3s ease-out;
+        }
+        
+        #full-leaderboard {
+            list-style-type: none;
+            padding: 0;
+        }
+        
+        #full-leaderboard li {
+            padding: 8px 12px;
+            margin: 5px 0;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        #full-leaderboard li:nth-child(odd) {
+            background: #f0f0f0;
+        }
+        
+        #close-leaderboard {
+            margin-top: 15px;
+        }
+        
+        @keyframes modal-open {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
         /* Адаптация для мобильных */
         @media (max-width: 500px) {
             #main-menu {
@@ -183,6 +274,11 @@
             #leaderboard {
                 max-width: 120px;
                 padding: 8px 10px;
+            }
+            
+            .no-scores small {
+                opacity: 0.7;
+                font-size: 0.8em;
             }
         }
     </style>
@@ -210,7 +306,7 @@
         <canvas id="game-canvas"></canvas>
         <div id="score">0</div>
         <div id="leaderboard">
-            <h3>Лучшие игроки</h3>
+            <h3>Лучшие игроки <span id="dataSourceBadge"></span></h3>
             <ol id="top-players"></ol>
         </div>
         
@@ -236,6 +332,18 @@
             <button id="close-how-to-play" style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">Понятно</button>
         </div>
     </div>
+    
+    <!-- Модальное окно таблицы рекордов -->
+    <div id="leaderboard-modal">
+        <div>
+            <h2 style="color: #4CAF50; margin-bottom: 15px; text-align: center;">Таблица рекордов</h2>
+            <ol id="full-leaderboard"></ol>
+            <button id="refresh-leaderboard" style="width: 100%; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px;">
+                Обновить
+            </button>
+            <button id="close-leaderboard" style="width: 100%; padding: 10px; margin-top: 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">Закрыть</button>
+        </div>
+    </div>
 
     <script>
         // ========== ЭЛЕМЕНТЫ ИНТЕРФЕЙСА ==========
@@ -254,6 +362,7 @@
         const scoreElement = document.getElementById('score');
         const leaderboardElement = document.getElementById('leaderboard');
         const topPlayersList = document.getElementById('top-players');
+        const dataSourceBadge = document.getElementById('dataSourceBadge');
         
         const gameOverElement = document.getElementById('game-over');
         const finalScoreElement = document.getElementById('final-score');
@@ -262,6 +371,11 @@
         
         const howToPlayModal = document.getElementById('how-to-play-modal');
         const closeHowToPlayBtn = document.getElementById('close-how-to-play');
+        
+        const leaderboardModal = document.getElementById('leaderboard-modal');
+        const fullLeaderboard = document.getElementById('full-leaderboard');
+        const closeLeaderboardBtn = document.getElementById('close-leaderboard');
+        const refreshLeaderboardBtn = document.getElementById('refresh-leaderboard');
         
         // ========== НАСТРОЙКИ ИГРЫ ==========
         const API_URL = 'https://your-render-app.onrender.com'; // Замените на ваш URL бэкенда
@@ -274,12 +388,13 @@
         let gameLoop;
         let gameActive = false;
         let playerName = '';
+        let refreshInterval;
         
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
         function init() {
             // Настройка обработчиков событий
             playBtn.addEventListener('click', showNicknameModal);
-            leaderboardBtn.addEventListener('click', showLeaderboard);
+            leaderboardBtn.addEventListener('click', showFullLeaderboard);
             howToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'flex');
             closeHowToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'none');
             
@@ -287,12 +402,23 @@
             restartBtn.addEventListener('click', startGame);
             menuBtn.addEventListener('click', returnToMenu);
             
-            // Загрузка таблицы лидеров
-            loadLeaderboard();
+            closeLeaderboardBtn.addEventListener('click', () => leaderboardModal.style.display = 'none');
+            refreshLeaderboardBtn.addEventListener('click', () => {
+                loadLeaderboard(fullLeaderboard, null);
+            });
+            
+            leaderboardModal.addEventListener('click', (e) => {
+                if (e.target === leaderboardModal) {
+                    leaderboardModal.style.display = 'none';
+                }
+            });
             
             // Инициализация размеров canvas
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
+            
+            // Загрузка таблицы лидеров
+            loadLeaderboard(topPlayersList, 5);
         }
         
         // ========== ФУНКЦИИ ИНТЕРФЕЙСА ==========
@@ -301,16 +427,33 @@
             nicknameInput.focus();
         }
         
-        function showLeaderboard() {
-            // Можно добавить отдельное окно с расширенной таблицей лидеров
-            alert('Таблица рекордов загружается...');
-            loadLeaderboard();
+        function showFullLeaderboard() {
+            leaderboardModal.style.display = 'flex';
+            loadLeaderboard(fullLeaderboard, null); // null - без ограничения количества
+        }
+        
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+        
+        function setDataSourceIndicator(source) {
+            dataSourceBadge.textContent = source === 'server' ? '🌐' : '📱';
+            dataSourceBadge.title = source === 'server' ? 'Данные с сервера' : 'Локальные данные';
         }
         
         function returnToMenu() {
             gameContainer.style.display = 'none';
             mainMenu.style.display = 'block';
             clearInterval(gameLoop);
+            clearInterval(refreshInterval);
         }
         
         // ========== ИГРОВЫЕ ФУНКЦИИ ==========
@@ -434,7 +577,7 @@
             // Сохранение результата
             await saveScore();
             // Обновление таблицы лидеров
-            await loadLeaderboard();
+            await loadLeaderboard(topPlayersList, 5);
         }
         
         function startGame() {
@@ -462,6 +605,12 @@
             // Запуск игрового цикла
             if (gameLoop) clearInterval(gameLoop);
             gameLoop = setInterval(gameStep, gameSpeed);
+            
+            // Загрузка таблицы лидеров
+            loadLeaderboard(topPlayersList, 5);
+            
+            // Автообновление таблицы лидеров каждые 30 секунд
+            refreshInterval = setInterval(() => loadLeaderboard(topPlayersList, 5), 30000);
         }
         
         // ========== УПРАВЛЕНИЕ ==========
@@ -516,11 +665,12 @@
             }
         }, { passive: false });
         
-        // ========== РАБОТА С API ==========
+        // ========== РАБОТА С API И ЛОКАЛЬНЫМИ ДАННЫМИ ==========
         async function saveScore() {
             if (!playerName || score === 0) return;
             
             try {
+                // Пытаемся сохранить на сервер
                 const response = await fetch(`${API_URL}/api/save_score`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -531,43 +681,101 @@
                 });
                 
                 if (!response.ok) throw new Error('Ошибка сервера');
+                
+                // Всегда сохраняем локально
+                saveScoreLocally();
                 return await response.json();
+                
             } catch (error) {
                 console.error('Ошибка сохранения:', error);
-                // Локальное сохранение, если бэкенд недоступен
-                saveScoreLocally();
+                saveScoreLocally(); // Сохраняем локально при ошибке
                 return null;
             }
         }
         
         function saveScoreLocally() {
-            const scores = JSON.parse(localStorage.getItem('snake_scores') || []);
-            scores.push({ player: playerName, score: score });
+            const scores = JSON.parse(localStorage.getItem('snake_scores') || '[]');
+            scores.push({ 
+                player: playerName, 
+                score: score,
+                date: new Date().toISOString() 
+            });
+            
+            // Сортируем по убыванию и сохраняем топ-10
             scores.sort((a, b) => b.score - a.score);
-            localStorage.setItem('snake_scores', scores.slice(0, 10));
+            localStorage.setItem('snake_scores', JSON.stringify(scores.slice(0, 10)));
         }
         
-        async function loadLeaderboard() {
+        async function loadLeaderboard(targetElement = topPlayersList, limit = 5) {
             try {
-                const response = await fetch(`${API_URL}/api/get_scores`);
-                let scores = await response.json();
+                // Показываем состояние загрузки
+                targetElement.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Загрузка...</li>';
                 
-                // Если бэкенд недоступен, используем локальные данные
-                if (!scores || !Array.isArray(scores)) {
-                    scores = JSON.parse(localStorage.getItem('snake_scores') || []);
+                // Проверка доступности сети
+                if (!navigator.onLine) {
+                    throw new Error('Отсутствует интернет-соединение');
+                }
+
+                // Пытаемся получить данные с сервера
+                const response = await fetch(`${API_URL}/api/get_scores`, {
+                    signal: AbortSignal.timeout(5000) // Таймаут 5 секунд
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Ошибка сервера: ${response.status}`);
                 }
                 
-                // Очистка и заполнение таблицы лидеров
-                topPlayersList.innerHTML = '';
-                scores.slice(0, 5).forEach((item, index) => {
-                    const li = document.createElement('li');
-                    li.textContent = `${index + 1}. ${item.player}: ${item.score}`;
-                    topPlayersList.appendChild(li);
-                });
+                const scores = await response.json();
+                
+                // Если данные получены, но пустые - показываем локальные
+                if (!scores || !Array.isArray(scores) || scores.length === 0) {
+                    return showLocalScores(targetElement, limit);
+                }
+                
+                // Очищаем и заполняем таблицу
+                renderLeaderboard(scores, targetElement, limit);
+                setDataSourceIndicator('server');
+                
             } catch (error) {
                 console.error('Ошибка загрузки рекордов:', error);
-                topPlayersList.innerHTML = '<li>Данные не загружены</li>';
+                // Показываем локальные данные при ошибке
+                showLocalScores(targetElement, limit);
+                
+                // Показываем информативное сообщение только в модальном окне
+                if (targetElement === fullLeaderboard && error.message.includes('Отсутствует интернет')) {
+                    showToast('Используются локальные рекорды (нет сети)');
+                }
             }
+        }
+
+        function showLocalScores(targetElement = topPlayersList, limit = 5) {
+            const localScores = JSON.parse(localStorage.getItem('snake_scores') || '[]');
+            renderLeaderboard(localScores, targetElement, limit);
+            setDataSourceIndicator('local');
+        }
+        
+        function renderLeaderboard(scores, targetElement, limit) {
+            targetElement.innerHTML = '';
+            const itemsToShow = limit ? scores.slice(0, limit) : scores;
+            
+            if (itemsToShow.length === 0) {
+                targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
+                return;
+            }
+            
+            itemsToShow.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.textContent = `${index + 1}. ${item.player || 'Игрок'}: ${item.score || 0}`;
+                if (item.date) {
+                    const date = new Date(item.date);
+                    const dateStr = date.toLocaleDateString();
+                    const small = document.createElement('small');
+                    small.textContent = ` (${dateStr})`;
+                    small.style.opacity = '0.7';
+                    li.appendChild(small);
+                }
+                targetElement.appendChild(li);
+            });
         }
         
         // Запуск игры при загрузке страницы
