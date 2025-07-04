@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка свинина</title>
+    <title>Змейка</title>
     <style>
         * {
             box-sizing: border-box;
@@ -56,43 +56,6 @@
         
         .menu-btn:hover {
             background-color: #45a049;
-        }
-        
-        /* Окно ввода никнейма */
-        #nickname-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-        
-        #nickname-form {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 350px;
-            text-align: center;
-        }
-        
-        #nickname-form h2 {
-            margin-bottom: 15px;
-            color: #333;
-        }
-        
-        #nickname-input {
-            width: 100%;
-            padding: 12px;
-            margin: 15px 0;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 1rem;
         }
         
         /* Игровое поле */
@@ -215,34 +178,68 @@
             to { bottom: 20px; opacity: 1; }
         }
         
-        /* Модальное окно таблицы рекордов */
-        #leaderboard-modal {
+        /* Модальные окна */
+        .modal {
             display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.7);
             justify-content: center;
             align-items: center;
             z-index: 100;
         }
         
-        #leaderboard-modal div {
+        .modal-content {
             background: white;
             padding: 20px;
             border-radius: 10px;
-            max-width: 400px;
+            max-width: 350px;
             width: 90%;
-            max-height: 70vh;
-            overflow-y: auto;
             animation: modal-open 0.3s ease-out;
         }
         
+        .modal-content h2 {
+            color: #4CAF50;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .modal-content button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .modal-content .secondary-btn {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .modal-content .danger-btn {
+            background: #f44336;
+            color: white;
+        }
+        
+        /* Таблица рекордов */
         #full-leaderboard {
             list-style-type: none;
             padding: 0;
+            max-height: 60vh;
+            overflow-y: auto;
         }
         
         #full-leaderboard li {
@@ -253,11 +250,7 @@
         }
         
         #full-leaderboard li:nth-child(odd) {
-            background: #f0f0f0;
-        }
-        
-        #close-leaderboard {
-            margin-top: 15px;
+            background: #f0f0f9;
         }
         
         @keyframes modal-open {
@@ -292,21 +285,12 @@
         <button id="how-to-play-btn" class="menu-btn">Как играть</button>
     </div>
     
-    <!-- Окно ввода никнейма -->
-    <div id="nickname-modal">
-        <div id="nickname-form">
-            <h2>Введите ваш никнейм</h2>
-            <input type="text" id="nickname-input" placeholder="Мой игровой ник" maxlength="15">
-            <button id="start-game-btn" class="menu-btn">Начать игру</button>
-        </div>
-    </div>
-    
     <!-- Игровое поле -->
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
         <div id="score">0</div>
         <div id="leaderboard">
-            <h3>Лучшие игроки <span id="dataSourceBadge"></span></h3>
+            <h3>Лучшие игроки</h3>
             <ol id="top-players"></ol>
         </div>
         
@@ -319,29 +303,64 @@
         </div>
     </div>
     
-    <!-- Как играть (модальное окно) -->
-    <div id="how-to-play-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100;">
-        <div style="background: white; padding: 20px; border-radius: 10px; max-width: 400px; width: 90%;">
-            <h2 style="margin-bottom: 15px; color: #4CAF50;">Как играть</h2>
-            <p style="margin-bottom: 10px;"><strong>Управление:</strong></p>
+    <!-- Модальное окно регистрации -->
+    <div id="register-modal" class="modal">
+        <div class="modal-content">
+            <h2>Регистрация</h2>
+            <input type="text" id="register-username" placeholder="Имя пользователя">
+            <input type="password" id="register-password" placeholder="Пароль">
+            <input type="email" id="register-email" placeholder="Email (необязательно)">
+            <button id="register-submit" class="menu-btn">Зарегистрироваться</button>
+            <button id="register-to-login" class="secondary-btn">Уже есть аккаунт? Войти</button>
+        </div>
+    </div>
+    
+    <!-- Модальное окно авторизации -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <h2>Вход</h2>
+            <input type="text" id="login-username" placeholder="Имя пользователя">
+            <input type="password" id="login-password" placeholder="Пароль">
+            <button id="login-submit" class="menu-btn">Войти</button>
+            <button id="login-to-register" class="secondary-btn">Нет аккаунта? Зарегистрироваться</button>
+        </div>
+    </div>
+    
+    <!-- Модальное окно профиля -->
+    <div id="profile-modal" class="modal">
+        <div class="modal-content">
+            <h2>Мой профиль</h2>
+            <div id="profile-info">
+                <p><strong>Имя пользователя:</strong> <span id="profile-username"></span></p>
+                <input type="text" id="profile-display-name" placeholder="Отображаемое имя">
+                <input type="text" id="profile-avatar-url" placeholder="URL аватара">
+            </div>
+            <button id="profile-save" class="menu-btn">Сохранить</button>
+            <button id="profile-logout" class="danger-btn">Выйти</button>
+        </div>
+    </div>
+    
+    <!-- Модальное окно "Как играть" -->
+    <div id="how-to-play-modal" class="modal">
+        <div class="modal-content">
+            <h2>Как играть</h2>
+            <p><strong>Управление:</strong></p>
             <ul style="margin-bottom: 20px; padding-left: 20px;">
                 <li style="margin-bottom: 8px;">На компьютере: клавиши WASD или стрелки</li>
                 <li style="margin-bottom: 8px;">На телефоне: свайпы в нужном направлении</li>
             </ul>
-            <p style="margin-bottom: 15px;"><strong>Цель:</strong> Управляйте змейкой, собирайте еду и набирайте очки!</p>
-            <button id="close-how-to-play" style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">Понятно</button>
+            <p><strong>Цель:</strong> Управляйте змейкой, собирайте еду и набирайте очки!</p>
+            <button id="close-how-to-play" class="menu-btn">Понятно</button>
         </div>
     </div>
     
     <!-- Модальное окно таблицы рекордов -->
-    <div id="leaderboard-modal">
-        <div>
-            <h2 style="color: #4CAF50; margin-bottom: 15px; text-align: center;">Таблица рекордов</h2>
+    <div id="leaderboard-modal" class="modal">
+        <div class="modal-content">
+            <h2>Таблица рекордов</h2>
             <ol id="full-leaderboard"></ol>
-            <button id="refresh-leaderboard" style="width: 100%; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px;">
-                Обновить
-            </button>
-            <button id="close-leaderboard" style="width: 100%; padding: 10px; margin-top: 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">Закрыть</button>
+            <button id="refresh-leaderboard" class="secondary-btn">Обновить</button>
+            <button id="close-leaderboard" class="menu-btn">Закрыть</button>
         </div>
     </div>
 
@@ -352,33 +371,27 @@
         const leaderboardBtn = document.getElementById('leaderboard-btn');
         const howToPlayBtn = document.getElementById('how-to-play-btn');
         
-        const nicknameModal = document.getElementById('nickname-modal');
-        const nicknameInput = document.getElementById('nickname-input');
-        const startGameBtn = document.getElementById('start-game-btn');
-        
         const gameContainer = document.getElementById('game-container');
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
         const scoreElement = document.getElementById('score');
         const leaderboardElement = document.getElementById('leaderboard');
         const topPlayersList = document.getElementById('top-players');
-        const dataSourceBadge = document.getElementById('dataSourceBadge');
         
         const gameOverElement = document.getElementById('game-over');
         const finalScoreElement = document.getElementById('final-score');
         const restartBtn = document.getElementById('restart-btn');
         const menuBtn = document.getElementById('menu-btn');
         
+        // Модальные окна
+        const registerModal = document.getElementById('register-modal');
+        const loginModal = document.getElementById('login-modal');
+        const profileModal = document.getElementById('profile-modal');
         const howToPlayModal = document.getElementById('how-to-play-modal');
-        const closeHowToPlayBtn = document.getElementById('close-how-to-play');
-        
         const leaderboardModal = document.getElementById('leaderboard-modal');
-        const fullLeaderboard = document.getElementById('full-leaderboard');
-        const closeLeaderboardBtn = document.getElementById('close-leaderboard');
-        const refreshLeaderboardBtn = document.getElementById('refresh-leaderboard');
         
         // ========== НАСТРОЙКИ ИГРЫ ==========
-        const API_URL = 'https://your-render-app.onrender.com'; // Замените на ваш URL бэкенда
+        const API_URL = 'http://localhost:10000'; // Замените на ваш URL бэкенда
         const gridSize = 20;
         let snake = [];
         let food = {};
@@ -387,49 +400,87 @@
         let gameSpeed = 150;
         let gameLoop;
         let gameActive = false;
-        let playerName = '';
         let refreshInterval;
+        
+        // Система пользователей
+        let currentUser = null;
+        let authToken = localStorage.getItem('snake_auth_token');
         
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
         function init() {
             // Настройка обработчиков событий
-            playBtn.addEventListener('click', showNicknameModal);
+            playBtn.addEventListener('click', startGame);
             leaderboardBtn.addEventListener('click', showFullLeaderboard);
             howToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'flex');
-            closeHowToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'none');
+            document.getElementById('close-how-to-play').addEventListener('click', () => howToPlayModal.style.display = 'none');
             
-            startGameBtn.addEventListener('click', startGame);
             restartBtn.addEventListener('click', startGame);
             menuBtn.addEventListener('click', returnToMenu);
             
-            closeLeaderboardBtn.addEventListener('click', () => leaderboardModal.style.display = 'none');
-            refreshLeaderboardBtn.addEventListener('click', () => {
-                loadLeaderboard(fullLeaderboard, null);
+            // Обработчики для модальных окон
+            document.getElementById('register-to-login').addEventListener('click', () => {
+                registerModal.style.display = 'none';
+                showLoginModal();
             });
             
-            leaderboardModal.addEventListener('click', (e) => {
-                if (e.target === leaderboardModal) {
-                    leaderboardModal.style.display = 'none';
-                }
+            document.getElementById('login-to-register').addEventListener('click', () => {
+                loginModal.style.display = 'none';
+                showRegisterModal();
+            });
+            
+            document.getElementById('register-submit').addEventListener('click', registerUser);
+            document.getElementById('login-submit').addEventListener('click', loginUser);
+            document.getElementById('profile-save').addEventListener('click', updateProfile);
+            document.getElementById('profile-logout').addEventListener('click', logoutUser);
+            
+            document.getElementById('close-leaderboard').addEventListener('click', () => leaderboardModal.style.display = 'none');
+            document.getElementById('refresh-leaderboard').addEventListener('click', () => loadLeaderboard(fullLeaderboard, null));
+            
+            // Закрытие модальных окон по клику вне контента
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
             });
             
             // Инициализация размеров canvas
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
             
+            // Проверка авторизации при загрузке
+            if (authToken) {
+                checkAuth();
+            }
+            
             // Загрузка таблицы лидеров
             loadLeaderboard(topPlayersList, 5);
         }
         
         // ========== ФУНКЦИИ ИНТЕРФЕЙСА ==========
-        function showNicknameModal() {
-            nicknameModal.style.display = 'flex';
-            nicknameInput.focus();
+        function showRegisterModal() {
+            registerModal.style.display = 'flex';
+            document.getElementById('register-username').focus();
+        }
+        
+        function showLoginModal() {
+            loginModal.style.display = 'flex';
+            document.getElementById('login-username').focus();
+        }
+        
+        function showProfile() {
+            if (!currentUser) return;
+            
+            document.getElementById('profile-username').textContent = currentUser.username;
+            document.getElementById('profile-display-name').value = currentUser.display_name || '';
+            document.getElementById('profile-avatar-url').value = currentUser.avatar_url || '';
+            profileModal.style.display = 'flex';
         }
         
         function showFullLeaderboard() {
             leaderboardModal.style.display = 'flex';
-            loadLeaderboard(fullLeaderboard, null); // null - без ограничения количества
+            loadLeaderboard(fullLeaderboard, null);
         }
         
         function showToast(message) {
@@ -442,11 +493,6 @@
                 toast.classList.add('fade-out');
                 setTimeout(() => toast.remove(), 500);
             }, 3000);
-        }
-        
-        function setDataSourceIndicator(source) {
-            dataSourceBadge.textContent = source === 'server' ? '🌐' : '📱';
-            dataSourceBadge.title = source === 'server' ? 'Данные с сервера' : 'Локальные данные';
         }
         
         function returnToMenu() {
@@ -575,15 +621,20 @@
             gameActive = false;
             
             // Сохранение результата
-            await saveScore();
+            if (currentUser) {
+                await saveScore();
+            }
+            
             // Обновление таблицы лидеров
             await loadLeaderboard(topPlayersList, 5);
         }
         
         function startGame() {
-            // Получение никнейма
-            playerName = nicknameInput.value.trim() || 'Игрок';
-            nicknameModal.style.display = 'none';
+            // Проверка авторизации
+            if (!currentUser) {
+                showLoginModal();
+                return;
+            }
             
             // Настройка игры
             mainMenu.style.display = 'none';
@@ -665,45 +716,189 @@
             }
         }, { passive: false });
         
-        // ========== РАБОТА С API И ЛОКАЛЬНЫМИ ДАННЫМИ ==========
-        async function saveScore() {
-            if (!playerName || score === 0) return;
+        // ========== СИСТЕМА ПОЛЬЗОВАТЕЛЕЙ ==========
+        async function checkAuth() {
+            try {
+                const response = await fetch(`${API_URL}/api/user`, {
+                    headers: {
+                        'Authorization': authToken
+                    }
+                });
+                
+                if (response.ok) {
+                    currentUser = await response.json();
+                    updateProfileButton();
+                } else {
+                    logoutUser();
+                }
+            } catch (error) {
+                console.error('Ошибка проверки авторизации:', error);
+            }
+        }
+        
+        function updateProfileButton() {
+            const profileBtn = document.getElementById('profile-btn') || document.createElement('button');
+            profileBtn.id = 'profile-btn';
+            profileBtn.className = 'menu-btn';
+            profileBtn.textContent = currentUser ? currentUser.display_name || currentUser.username : 'Войти';
+            profileBtn.style.marginTop = '20px';
+            
+            if (!document.getElementById('profile-btn')) {
+                mainMenu.appendChild(profileBtn);
+                profileBtn.addEventListener('click', () => {
+                    if (currentUser) {
+                        showProfile();
+                    } else {
+                        showLoginModal();
+                    }
+                });
+            }
+        }
+        
+        async function registerUser() {
+            const username = document.getElementById('register-username').value.trim();
+            const password = document.getElementById('register-password').value;
+            const email = document.getElementById('register-email').value.trim();
+            
+            if (!username || !password) {
+                showToast('Введите имя пользователя и пароль');
+                return;
+            }
             
             try {
-                // Пытаемся сохранить на сервер
+                const response = await fetch(`${API_URL}/api/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username,
+                        password,
+                        email: email || null
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.token;
+                    localStorage.setItem('snake_auth_token', authToken);
+                    currentUser = await checkAuth();
+                    registerModal.style.display = 'none';
+                    showToast('Регистрация успешна!');
+                } else {
+                    showToast(data.error || 'Ошибка регистрации');
+                }
+            } catch (error) {
+                showToast('Ошибка соединения');
+                console.error('Ошибка регистрации:', error);
+            }
+        }
+        
+        async function loginUser() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            
+            if (!username || !password) {
+                showToast('Введите имя пользователя и пароль');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username,
+                        password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.token;
+                    localStorage.setItem('snake_auth_token', authToken);
+                    currentUser = await checkAuth();
+                    loginModal.style.display = 'none';
+                    showToast('Вход выполнен!');
+                } else {
+                    showToast(data.error || 'Ошибка входа');
+                }
+            } catch (error) {
+                showToast('Ошибка соединения');
+                console.error('Ошибка входа:', error);
+            }
+        }
+        
+        async function updateProfile() {
+            const displayName = document.getElementById('profile-display-name').value.trim();
+            const avatarUrl = document.getElementById('profile-avatar-url').value.trim();
+            
+            try {
+                const response = await fetch(`${API_URL}/api/user/update`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': authToken,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        display_name: displayName,
+                        avatar_url: avatarUrl
+                    })
+                });
+                
+                if (response.ok) {
+                    currentUser = await checkAuth();
+                    showToast('Профиль обновлен!');
+                    profileModal.style.display = 'none';
+                } else {
+                    const data = await response.json();
+                    showToast(data.error || 'Ошибка обновления профиля');
+                }
+            } catch (error) {
+                showToast('Ошибка соединения');
+                console.error('Ошибка обновления профиля:', error);
+            }
+        }
+        
+        function logoutUser() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('snake_auth_token');
+            updateProfileButton();
+            profileModal.style.display = 'none';
+            showToast('Вы вышли из системы');
+        }
+        
+        // ========== РАБОТА С API ==========
+        async function saveScore() {
+            if (!currentUser || score === 0) return;
+            
+            try {
                 const response = await fetch(`${API_URL}/api/save_score`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Authorization': authToken,
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify({ 
-                        player_name: playerName, 
                         score: score 
                     })
                 });
                 
-                if (!response.ok) throw new Error('Ошибка сервера');
+                if (!response.ok) {
+                    throw new Error('Ошибка сохранения результата');
+                }
                 
-                // Всегда сохраняем локально
-                saveScoreLocally();
                 return await response.json();
                 
             } catch (error) {
                 console.error('Ошибка сохранения:', error);
-                saveScoreLocally(); // Сохраняем локально при ошибке
                 return null;
             }
-        }
-        
-        function saveScoreLocally() {
-            const scores = JSON.parse(localStorage.getItem('snake_scores') || '[]');
-            scores.push({ 
-                player: playerName, 
-                score: score,
-                date: new Date().toISOString() 
-            });
-            
-            // Сортируем по убыванию и сохраняем топ-10
-            scores.sort((a, b) => b.score - a.score);
-            localStorage.setItem('snake_scores', JSON.stringify(scores.slice(0, 10)));
         }
         
         async function loadLeaderboard(targetElement = topPlayersList, limit = 5) {
@@ -711,71 +906,41 @@
                 // Показываем состояние загрузки
                 targetElement.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Загрузка...</li>';
                 
-                // Проверка доступности сети
-                if (!navigator.onLine) {
-                    throw new Error('Отсутствует интернет-соединение');
-                }
-
-                // Пытаемся получить данные с сервера
-                const response = await fetch(`${API_URL}/api/get_scores`, {
-                    signal: AbortSignal.timeout(5000) // Таймаут 5 секунд
-                });
+                const response = await fetch(`${API_URL}/api/get_scores`);
                 
                 if (!response.ok) {
-                    throw new Error(`Ошибка сервера: ${response.status}`);
+                    throw new Error('Ошибка загрузки таблицы лидеров');
                 }
                 
                 const scores = await response.json();
                 
-                // Если данные получены, но пустые - показываем локальные
-                if (!scores || !Array.isArray(scores) || scores.length === 0) {
-                    return showLocalScores(targetElement, limit);
+                // Очищаем и заполняем таблицу
+                targetElement.innerHTML = '';
+                const itemsToShow = limit ? scores.slice(0, limit) : scores;
+                
+                if (itemsToShow.length === 0) {
+                    targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
+                    return;
                 }
                 
-                // Очищаем и заполняем таблицу
-                renderLeaderboard(scores, targetElement, limit);
-                setDataSourceIndicator('server');
+                itemsToShow.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.textContent = `${index + 1}. ${item.player}: ${item.score || 0}`;
+                    if (item.date) {
+                        const date = new Date(item.date);
+                        const dateStr = date.toLocaleDateString();
+                        const small = document.createElement('small');
+                        small.textContent = ` (${dateStr})`;
+                        small.style.opacity = '0.7';
+                        li.appendChild(small);
+                    }
+                    targetElement.appendChild(li);
+                });
                 
             } catch (error) {
                 console.error('Ошибка загрузки рекордов:', error);
-                // Показываем локальные данные при ошибке
-                showLocalScores(targetElement, limit);
-                
-                // Показываем информативное сообщение только в модальном окне
-                if (targetElement === fullLeaderboard && error.message.includes('Отсутствует интернет')) {
-                    showToast('Используются локальные рекорды (нет сети)');
-                }
+                targetElement.innerHTML = '<li class="no-scores">Не удалось загрузить рекорды<br><small>Попробуйте позже</small></li>';
             }
-        }
-
-        function showLocalScores(targetElement = topPlayersList, limit = 5) {
-            const localScores = JSON.parse(localStorage.getItem('snake_scores') || '[]');
-            renderLeaderboard(localScores, targetElement, limit);
-            setDataSourceIndicator('local');
-        }
-        
-        function renderLeaderboard(scores, targetElement, limit) {
-            targetElement.innerHTML = '';
-            const itemsToShow = limit ? scores.slice(0, limit) : scores;
-            
-            if (itemsToShow.length === 0) {
-                targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
-                return;
-            }
-            
-            itemsToShow.forEach((item, index) => {
-                const li = document.createElement('li');
-                li.textContent = `${index + 1}. ${item.player || 'Игрок'}: ${item.score || 0}`;
-                if (item.date) {
-                    const date = new Date(item.date);
-                    const dateStr = date.toLocaleDateString();
-                    const small = document.createElement('small');
-                    small.textContent = ` (${dateStr})`;
-                    small.style.opacity = '0.7';
-                    li.appendChild(small);
-                }
-                targetElement.appendChild(li);
-            });
         }
         
         // Запуск игры при загрузке страницы
