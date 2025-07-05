@@ -10,19 +10,23 @@ app = Flask(__name__)
 CORS(app)  # Разрешаем запросы с любого домена
 
 # Конфигурация базы данных
-DATABASE = 'database.db'
+DATABASE = '/tmp/database.db' if 'RENDER' in os.environ else 'database.db'
 
 def get_db_connection():
-    # Проверяем, нужно ли инициализировать базу данных
+    # Создаем папку если её нет (для Render)
+    os.makedirs(os.path.dirname(DATABASE), exist_ok=True)
+    
+    # Проверяем и инициализируем БД при первом подключении
     if not os.path.exists(DATABASE):
         init_db()
+        
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    print("Инициализация базы данных...")
-    with app.app_context():
+    print(f"Инициализация базы данных в {DATABASE}...")
+    try:
         db = sqlite3.connect(DATABASE)
         cursor = db.cursor()
         
@@ -60,8 +64,13 @@ def init_db():
         ''')
         
         db.commit()
-        db.close()
-    print("База данных успешно инициализирована")
+        print("База данных успешно инициализирована")
+    except Exception as e:
+        print(f"Ошибка инициализации БД: {str(e)}")
+        raise
+    finally:
+        if db:
+            db.close()
 
 # Хеширование пароля
 def hash_password(password):
@@ -118,10 +127,194 @@ def register():
     finally:
         db.close()
 
-# ... (остальные функции остаются без изменений)
+# Авторизация пользователя
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({'error': 'Необходимо указать имя пользователя и пароль'}), 400
+    
+    try:
+        db = get_db_connection()
+        
+        user = db.execute(
+            'SELECT id, password_hash FROM users WHERE username = ?', 
+            (data['username'],)
+        ).fetchone()
+        
+        if not user or user['password_hash'] != hash_password(data['password']):
+            return jsonify({'error': 'Неверное имя пользователя или пароль'}), 401
+        
+        # Обновление токена
+        token = generate_token()
+        db.execute(
+            'UPDATE users SET token = ? WHERE id = ?',
+            (token, user['id'])
+        )
+        db.commit()
+        
+        return jsonify({'token': token, 'user_id': user['id']})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Получение информации о пользователе
+@app.route('/api/user', methods=['GET'])
+def get_user():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'error': 'Требуется авторизация'}), 401
+    
+    try:
+        db = get_db_connection()
+        
+        user = db.execute('''
+            SELECT u.id, u.username, p.display_name, p.avatar_url
+            FROM users u
+            LEFT JOIN profiles p ON u.id = p.user_id
+            WHERE u.token = ?
+        ''', (token,)).fetchone()
+        
+        if not user:
+            return jsonify({'error': 'Неверный токен'}), 401
+            
+        return jsonify(dict(user))
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Обновление профиля
+@app.route('/api/user/update', methods=['POST'])
+def update_profile():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'error': 'Требуется авторизация'}), 401
+    
+    data = request.get_json()
+    
+    try:
+        db = get_db_connection()
+        
+        # Проверяем токен
+        user = db.execute(
+            'SELECT id FROM users WHERE token = ?', 
+            (token,)
+        ).fetchone()
+        
+        if not user:
+            return jsonify({'error': 'Неверный токен'}), 401
+        
+        # Обновляем профиль
+        db.execute('''
+            UPDATE profiles
+            SET display_name = ?, avatar_url = ?
+            WHERE user_id = ?
+        ''', (data.get('display_name'), data.get('avatar_url'), user['id']))
+        
+        db.commit()
+        return jsonify({'status': 'success'})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Сохранение результата игры
+@app.route('/api/save_score', methods=['POST'])
+def save_score():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'error': 'Требуется авторизация'}), 401
+    
+    data = request.get_json()
+    
+    try:
+        db = get_db_connection()
+        
+        # Проверяем токен
+        user = db.execute(
+            'SELECT id FROM users WHERE token = ?', 
+            (token,)
+        ).fetchone()
+        
+        if not user:
+            return jsonify({'error': 'Неверный токен'}), 401
+        
+        # Сохраняем результат
+        db.execute('''
+            INSERT INTO scores (user_id, score, date)
+            VALUES (?, ?, ?)
+        ''', (user['id'], data['score'], datetime.now().isoformat()))
+        
+        db.commit()
+        return jsonify({'status': 'success'})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Получение таблицы лидеров
+@app.route('/api/get_scores', methods=['GET'])
+def get_scores():
+    try:
+        db = get_db_connection()
+        scores = db.execute('''
+            SELECT p.display_name as player, s.score, s.date
+            FROM scores s
+            JOIN profiles p ON s.user_id = p.user_id
+            ORDER BY s.score DESC 
+            LIMIT 100
+        ''').fetchall()
+        return jsonify([dict(row) for row in scores])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Получение личных рекордов
+@app.route('/api/my_scores', methods=['GET'])
+def get_my_scores():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'error': 'Требуется авторизация'}), 401
+    
+    try:
+        db = get_db_connection()
+        
+        user = db.execute(
+            'SELECT id FROM users WHERE token = ?', 
+            (token,)
+        ).fetchone()
+        
+        if not user:
+            return jsonify({'error': 'Неверный токен'}), 401
+        
+        scores = db.execute('''
+            SELECT score, date
+            FROM scores
+            WHERE user_id = ?
+            ORDER BY score DESC
+            LIMIT 10
+        ''', (user['id'],)).fetchall()
+        
+        return jsonify([dict(row) for row in scores])
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
 
 if __name__ == '__main__':
     # Убедимся, что база данных инициализирована перед запуском
     if not os.path.exists(DATABASE):
         init_db()
-    app.run(host='0.0.0.0', port=10000, debug=True)
+    
+    # Для Render нужно указать порт из переменной окружения
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port, debug=True)
