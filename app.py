@@ -59,7 +59,6 @@ def init_db():
                 )
             ''')
             
-            # Создаём индекс для быстрого поиска лучших результатов
             db.execute('CREATE INDEX IF NOT EXISTS idx_scores_user_score ON scores(user_id, score)')
             
             db.commit()
@@ -68,19 +67,23 @@ def init_db():
         logger.error(f"Ошибка инициализации БД: {str(e)}")
         raise
 
-@app.before_first_request
-def before_first_request():
+# Инициализация БД при старте приложения
+with app.app_context():
     if not os.path.exists(DATABASE):
         init_db()
 
 @app.route('/api/healthcheck', methods=['GET'])
 def healthcheck():
-    return jsonify({'status': 'ok', 'database': DATABASE})
+    return jsonify({
+        'status': 'ok', 
+        'database': DATABASE,
+        'app': 'Snake Game API',
+        'version': '1.0'
+    })
 
 @app.route('/api/identify', methods=['GET'])
 def identify_user():
     try:
-        # Проверяем куки или создаём новую сессию
         session_id = request.cookies.get('snake_game_session')
         
         if not session_id:
@@ -94,7 +97,6 @@ def identify_user():
             ).fetchone()
             
             if not user:
-                # Создаём нового пользователя
                 default_name = f"Игрок_{session_id[:5]}"
                 db.execute('''
                     INSERT INTO users (session_id, display_name, created_at, last_seen_at)
@@ -108,7 +110,6 @@ def identify_user():
                 ).fetchone()
                 logger.info(f"Создан новый пользователь: {user['id']}")
             
-            # Обновляем время последнего посещения
             db.execute(
                 'UPDATE users SET last_seen_at = ? WHERE id = ?',
                 (datetime.now().isoformat(), user['id'])
@@ -117,11 +118,9 @@ def identify_user():
             
             response = make_response(jsonify({
                 'id': user['id'],
-                'display_name': user['display_name'],
-                'session_id': user['session_id']
+                'display_name': user['display_name']
             }))
             
-            # Устанавливаем куку на 30 дней
             response.set_cookie(
                 'snake_game_session',
                 session_id,
@@ -149,16 +148,6 @@ def update_profile():
             return jsonify({'error': 'Имя должно содержать минимум 2 символа'}), 400
             
         with get_db_connection() as db:
-            # Проверяем существование пользователя
-            user = db.execute(
-                'SELECT id FROM users WHERE session_id = ?', 
-                (session_id,)
-            ).fetchone()
-            
-            if not user:
-                return jsonify({'error': 'Пользователь не найден'}), 404
-            
-            # Обновляем имя
             db.execute('''
                 UPDATE users 
                 SET display_name = ?
@@ -166,12 +155,14 @@ def update_profile():
             ''', (data['display_name'].strip(), session_id))
             db.commit()
             
-            # Получаем обновлённые данные
             updated_user = db.execute(
                 'SELECT * FROM users WHERE session_id = ?', 
                 (session_id,)
             ).fetchone()
             
+            if not updated_user:
+                return jsonify({'error': 'Пользователь не найден'}), 404
+                
             return jsonify({
                 'id': updated_user['id'],
                 'display_name': updated_user['display_name'],
@@ -194,7 +185,6 @@ def save_score():
             return jsonify({'error': 'Некорректный счёт'}), 400
             
         with get_db_connection() as db:
-            # Получаем пользователя
             user = db.execute(
                 'SELECT id FROM users WHERE session_id = ?', 
                 (session_id,)
@@ -203,14 +193,16 @@ def save_score():
             if not user:
                 return jsonify({'error': 'Пользователь не найден'}), 404
             
-            # Сохраняем результат
             db.execute('''
                 INSERT INTO scores (user_id, score, date)
                 VALUES (?, ?, ?)
             ''', (user['id'], data['score'], datetime.now().isoformat()))
             db.commit()
             
-            return jsonify({'status': 'success', 'saved_score': data['score']})
+            return jsonify({
+                'status': 'success',
+                'saved_score': data['score']
+            })
             
     except Exception as e:
         logger.error(f"Ошибка сохранения счёта: {str(e)}")
@@ -220,9 +212,11 @@ def save_score():
 def get_scores():
     try:
         with get_db_connection() as db:
-            # Получаем топ-100 лучших результатов
             scores = db.execute('''
-                SELECT u.display_name as player, MAX(s.score) as score, MAX(s.date) as date
+                SELECT 
+                    u.display_name as player, 
+                    MAX(s.score) as score, 
+                    MAX(s.date) as date
                 FROM scores s
                 JOIN users u ON s.user_id = u.id
                 GROUP BY u.id
@@ -230,7 +224,7 @@ def get_scores():
                 LIMIT 100
             ''').fetchall()
             
-            return jsonify([dict(row) for row in scores])
+            return jsonify([dict(score) for score in scores])
             
     except Exception as e:
         logger.error(f"Ошибка получения рекордов: {str(e)}")
