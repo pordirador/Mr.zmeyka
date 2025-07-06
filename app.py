@@ -53,43 +53,41 @@ def get_db():
 def init_db():
     try:
         with get_db() as conn, conn.cursor() as cur:
-            # Таблица пользователей
+            # Проверяем существование таблиц
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id SERIAL PRIMARY KEY,
-                    session_id VARCHAR(36) UNIQUE NOT NULL,
-                    display_name VARCHAR(50) NOT NULL DEFAULT 'Player',
-                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                    last_seen_at TIMESTAMP NOT NULL DEFAULT NOW()
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'users'
                 )
             """)
-            
-            # Таблица рекордов
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS scores (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER REFERENCES users(id),
-                    score INTEGER NOT NULL,
-                    date TIMESTAMP NOT NULL DEFAULT NOW()
-                )
-            """)
-            
-            # Индексы для быстрого поиска
-            cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_scores_user_id ON scores(user_id)
-            """)
-            cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_scores_score ON scores(score DESC)
-            """)
-            
-            conn.commit()
+            if not cur.fetchone()[0]:
+                # Создаем таблицы, если их нет
+                cur.execute("""
+                    CREATE TABLE users (
+                        id SERIAL PRIMARY KEY,
+                        session_id VARCHAR(36) UNIQUE NOT NULL,
+                        display_name VARCHAR(50) NOT NULL DEFAULT 'Player',
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        last_seen_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                """)
+                
+                cur.execute("""
+                    CREATE TABLE scores (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER REFERENCES users(id),
+                        score INTEGER NOT NULL,
+                        date TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                """)
+                
+                conn.commit()
+                logger.info("Таблицы созданы успешно")
+            else:
+                logger.info("Таблицы уже существуют")
     except Exception as e:
         logger.error(f"Ошибка инициализации БД: {e}")
         raise
-
-# Инициализируем БД при старте
-with app.app_context():
-    init_db()
 
 @app.route('/api/init', methods=['GET'])
 def init_session():
