@@ -670,7 +670,7 @@
         // ========== СИСТЕМА ПОЛЬЗОВАТЕЛЕЙ ==========
         async function identifyUser() {
             try {
-                const response = await fetch(`${API_URL}/api/identify`);
+                const response = await fetch(`${API_URL}/api/init`);
                 if (response.ok) {
                     currentUser = await response.json();
                     updateProfileButton();
@@ -693,7 +693,7 @@
             }
             
             try {
-                const response = await fetch(`${API_URL}/api/user/update`, {
+                const response = await fetch(`${API_URL}/api/user`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -723,7 +723,7 @@
             if (!currentUser || score === 0) return;
             
             try {
-                const response = await fetch(`${API_URL}/api/save_score`, {
+                const response = await fetch(`${API_URL}/api/scores`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -750,7 +750,7 @@
                 // Показываем состояние загрузки
                 targetElement.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Загрузка...</li>';
                 
-                const response = await fetch(`${API_URL}/api/get_scores`);
+                const response = await fetch(`${API_URL}/api/scores`);
                 
                 if (!response.ok) {
                     throw new Error('Ошибка загрузки таблицы лидеров');
