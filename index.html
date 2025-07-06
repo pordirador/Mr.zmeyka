@@ -283,6 +283,7 @@
         <button id="play-btn" class="menu-btn">Играть</button>
         <button id="leaderboard-btn" class="menu-btn">Таблица рекордов</button>
         <button id="how-to-play-btn" class="menu-btn">Как играть</button>
+        <button id="profile-btn" class="menu-btn" style="margin-top: 20px;">Профиль</button>
     </div>
     
     <!-- Игровое поле -->
@@ -303,40 +304,15 @@
         </div>
     </div>
     
-    <!-- Модальное окно регистрации -->
-    <div id="register-modal" class="modal">
-        <div class="modal-content">
-            <h2>Регистрация</h2>
-            <input type="text" id="register-username" placeholder="Имя пользователя">
-            <input type="password" id="register-password" placeholder="Пароль">
-            <input type="email" id="register-email" placeholder="Email (необязательно)">
-            <button id="register-submit" class="menu-btn">Зарегистрироваться</button>
-            <button id="register-to-login" class="secondary-btn">Уже есть аккаунт? Войти</button>
-        </div>
-    </div>
-    
-    <!-- Модальное окно авторизации -->
-    <div id="login-modal" class="modal">
-        <div class="modal-content">
-            <h2>Вход</h2>
-            <input type="text" id="login-username" placeholder="Имя пользователя">
-            <input type="password" id="login-password" placeholder="Пароль">
-            <button id="login-submit" class="menu-btn">Войти</button>
-            <button id="login-to-register" class="secondary-btn">Нет аккаунта? Зарегистрироваться</button>
-        </div>
-    </div>
-    
     <!-- Модальное окно профиля -->
     <div id="profile-modal" class="modal">
         <div class="modal-content">
             <h2>Мой профиль</h2>
             <div id="profile-info">
-                <p><strong>Имя пользователя:</strong> <span id="profile-username"></span></p>
-                <input type="text" id="profile-display-name" placeholder="Отображаемое имя">
-                <input type="text" id="profile-avatar-url" placeholder="URL аватара">
+                <p><strong>Ваш ID:</strong> <span id="profile-id"></span></p>
+                <input type="text" id="profile-name-input" placeholder="Ваше игровое имя">
             </div>
-            <button id="profile-save" class="menu-btn">Сохранить</button>
-            <button id="profile-logout" class="danger-btn">Выйти</button>
+            <button id="profile-save-btn" class="menu-btn">Сохранить</button>
         </div>
     </div>
     
@@ -370,6 +346,7 @@
         const playBtn = document.getElementById('play-btn');
         const leaderboardBtn = document.getElementById('leaderboard-btn');
         const howToPlayBtn = document.getElementById('how-to-play-btn');
+        const profileBtn = document.getElementById('profile-btn');
         
         const gameContainer = document.getElementById('game-container');
         const canvas = document.getElementById('game-canvas');
@@ -384,14 +361,17 @@
         const menuBtn = document.getElementById('menu-btn');
         
         // Модальные окна
-        const registerModal = document.getElementById('register-modal');
-        const loginModal = document.getElementById('login-modal');
         const profileModal = document.getElementById('profile-modal');
         const howToPlayModal = document.getElementById('how-to-play-modal');
         const leaderboardModal = document.getElementById('leaderboard-modal');
         
+        // Элементы профиля
+        const profileNameInput = document.getElementById('profile-name-input');
+        const profileIdSpan = document.getElementById('profile-id');
+        const profileSaveBtn = document.getElementById('profile-save-btn');
+        
         // ========== НАСТРОЙКИ ИГРЫ ==========
-        const API_URL = 'https://mr-zmeyka-backend.onrender.com'; // Замените на ваш URL бэкенда
+        const API_URL = 'https://mr-zmeyka-backend.onrender.com';
         const gridSize = 20;
         let snake = [];
         let food = {};
@@ -404,37 +384,23 @@
         
         // Система пользователей
         let currentUser = null;
-        let authToken = localStorage.getItem('snake_auth_token');
         
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
-        function init() {
+        async function init() {
             // Настройка обработчиков событий
             playBtn.addEventListener('click', startGame);
             leaderboardBtn.addEventListener('click', showFullLeaderboard);
             howToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'flex');
+            profileBtn.addEventListener('click', showProfileModal);
+            
             document.getElementById('close-how-to-play').addEventListener('click', () => howToPlayModal.style.display = 'none');
+            document.getElementById('close-leaderboard').addEventListener('click', () => leaderboardModal.style.display = 'none');
+            document.getElementById('refresh-leaderboard').addEventListener('click', () => loadLeaderboard(fullLeaderboard, null));
             
             restartBtn.addEventListener('click', startGame);
             menuBtn.addEventListener('click', returnToMenu);
             
-            // Обработчики для модальных окон
-            document.getElementById('register-to-login').addEventListener('click', () => {
-                registerModal.style.display = 'none';
-                showLoginModal();
-            });
-            
-            document.getElementById('login-to-register').addEventListener('click', () => {
-                loginModal.style.display = 'none';
-                showRegisterModal();
-            });
-            
-            document.getElementById('register-submit').addEventListener('click', registerUser);
-            document.getElementById('login-submit').addEventListener('click', loginUser);
-            document.getElementById('profile-save').addEventListener('click', updateProfile);
-            document.getElementById('profile-logout').addEventListener('click', logoutUser);
-            
-            document.getElementById('close-leaderboard').addEventListener('click', () => leaderboardModal.style.display = 'none');
-            document.getElementById('refresh-leaderboard').addEventListener('click', () => loadLeaderboard(fullLeaderboard, null));
+            profileSaveBtn.addEventListener('click', updateProfile);
             
             // Закрытие модальных окон по клику вне контента
             document.querySelectorAll('.modal').forEach(modal => {
@@ -449,32 +415,19 @@
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
             
-            // Проверка авторизации при загрузке
-            if (authToken) {
-                checkAuth();
-            }
+            // Идентификация пользователя
+            await identifyUser();
             
             // Загрузка таблицы лидеров
             loadLeaderboard(topPlayersList, 5);
         }
         
         // ========== ФУНКЦИИ ИНТЕРФЕЙСА ==========
-        function showRegisterModal() {
-            registerModal.style.display = 'flex';
-            document.getElementById('register-username').focus();
-        }
-        
-        function showLoginModal() {
-            loginModal.style.display = 'flex';
-            document.getElementById('login-username').focus();
-        }
-        
-        function showProfile() {
+        function showProfileModal() {
             if (!currentUser) return;
             
-            document.getElementById('profile-username').textContent = currentUser.username;
-            document.getElementById('profile-display-name').value = currentUser.display_name || '';
-            document.getElementById('profile-avatar-url').value = currentUser.avatar_url || '';
+            profileIdSpan.textContent = currentUser.id;
+            profileNameInput.value = currentUser.display_name || '';
             profileModal.style.display = 'flex';
         }
         
@@ -500,6 +453,12 @@
             mainMenu.style.display = 'block';
             clearInterval(gameLoop);
             clearInterval(refreshInterval);
+        }
+        
+        function updateProfileButton() {
+            if (currentUser) {
+                profileBtn.textContent = currentUser.display_name || 'Профиль';
+            }
         }
         
         // ========== ИГРОВЫЕ ФУНКЦИИ ==========
@@ -630,12 +589,6 @@
         }
         
         function startGame() {
-            // Проверка авторизации
-            if (!currentUser) {
-                showLoginModal();
-                return;
-            }
-            
             // Настройка игры
             mainMenu.style.display = 'none';
             gameContainer.style.display = 'block';
@@ -717,160 +670,54 @@
         }, { passive: false });
         
         // ========== СИСТЕМА ПОЛЬЗОВАТЕЛЕЙ ==========
-        async function checkAuth() {
+        async function identifyUser() {
             try {
-                const response = await fetch(`${API_URL}/api/user`, {
-                    headers: {
-                        'Authorization': authToken
-                    }
-                });
-                
+                const response = await fetch(`${API_URL}/api/identify`);
                 if (response.ok) {
                     currentUser = await response.json();
                     updateProfileButton();
+                    showToast(`Добро пожаловать, ${currentUser.display_name || 'Игрок'}!`);
                 } else {
-                    logoutUser();
-                }
-            } catch (error) {
-                console.error('Ошибка проверки авторизации:', error);
-            }
-        }
-        
-        function updateProfileButton() {
-            const profileBtn = document.getElementById('profile-btn') || document.createElement('button');
-            profileBtn.id = 'profile-btn';
-            profileBtn.className = 'menu-btn';
-            profileBtn.textContent = currentUser ? currentUser.display_name || currentUser.username : 'Войти';
-            profileBtn.style.marginTop = '20px';
-            
-            if (!document.getElementById('profile-btn')) {
-                mainMenu.appendChild(profileBtn);
-                profileBtn.addEventListener('click', () => {
-                    if (currentUser) {
-                        showProfile();
-                    } else {
-                        showLoginModal();
-                    }
-                });
-            }
-        }
-        
-        async function registerUser() {
-            const username = document.getElementById('register-username').value.trim();
-            const password = document.getElementById('register-password').value;
-            const email = document.getElementById('register-email').value.trim();
-            
-            if (!username || !password) {
-                showToast('Введите имя пользователя и пароль');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_URL}/api/register`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        username,
-                        password,
-                        email: email || null
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    authToken = data.token;
-                    localStorage.setItem('snake_auth_token', authToken);
-                    currentUser = await checkAuth();
-                    registerModal.style.display = 'none';
-                    showToast('Регистрация успешна!');
-                } else {
-                    showToast(data.error || 'Ошибка регистрации');
+                    const error = await response.json();
+                    showToast(error.error || 'Ошибка идентификации');
                 }
             } catch (error) {
                 showToast('Ошибка соединения');
-                console.error('Ошибка регистрации:', error);
-            }
-        }
-        
-        async function loginUser() {
-            const username = document.getElementById('login-username').value.trim();
-            const password = document.getElementById('login-password').value;
-            
-            if (!username || !password) {
-                showToast('Введите имя пользователя и пароль');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_URL}/api/login`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        username,
-                        password
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    authToken = data.token;
-                    localStorage.setItem('snake_auth_token', authToken);
-                    currentUser = await checkAuth();
-                    loginModal.style.display = 'none';
-                    showToast('Вход выполнен!');
-                } else {
-                    showToast(data.error || 'Ошибка входа');
-                }
-            } catch (error) {
-                showToast('Ошибка соединения');
-                console.error('Ошибка входа:', error);
+                console.error('Ошибка идентификации:', error);
             }
         }
         
         async function updateProfile() {
-            const displayName = document.getElementById('profile-display-name').value.trim();
-            const avatarUrl = document.getElementById('profile-avatar-url').value.trim();
+            const newName = profileNameInput.value.trim();
+            if (!newName) {
+                showToast('Введите имя');
+                return;
+            }
             
             try {
                 const response = await fetch(`${API_URL}/api/user/update`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': authToken,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        display_name: displayName,
-                        avatar_url: avatarUrl
+                        display_name: newName
                     })
                 });
                 
                 if (response.ok) {
-                    currentUser = await checkAuth();
-                    showToast('Профиль обновлен!');
+                    currentUser = await response.json();
+                    updateProfileButton();
                     profileModal.style.display = 'none';
+                    showToast('Профиль обновлен!');
                 } else {
-                    const data = await response.json();
-                    showToast(data.error || 'Ошибка обновления профиля');
+                    const error = await response.json();
+                    showToast(error.error || 'Ошибка обновления профиля');
                 }
             } catch (error) {
                 showToast('Ошибка соединения');
                 console.error('Ошибка обновления профиля:', error);
             }
-        }
-        
-        function logoutUser() {
-            authToken = null;
-            currentUser = null;
-            localStorage.removeItem('snake_auth_token');
-            updateProfileButton();
-            profileModal.style.display = 'none';
-            showToast('Вы вышли из системы');
         }
         
         // ========== РАБОТА С API ==========
@@ -881,7 +728,6 @@
                 const response = await fetch(`${API_URL}/api/save_score`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': authToken,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ 
