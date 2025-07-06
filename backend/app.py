@@ -3,12 +3,19 @@ import sqlite3
 from datetime import datetime
 from flask_cors import CORS
 import os
+import uuid
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 # Конфигурация базы данных
-DATABASE = '/tmp/database.db' if 'RENDER' in os.environ else 'database.db'
+DATABASE = os.path.join(os.getcwd(), 'database.db')
 
 def get_db_connection():
     os.makedirs(os.path.dirname(DATABASE), exist_ok=True)
@@ -27,7 +34,7 @@ def init_db():
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ip_address TEXT UNIQUE NOT NULL,
+                session_id TEXT UNIQUE NOT NULL,
                 display_name TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 last_seen_at TEXT NOT NULL
@@ -40,8 +47,7 @@ def init_db():
                 user_id INTEGER NOT NULL,
                 score INTEGER NOT NULL,
                 date TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users (id),
-                UNIQUE(user_id)  -- Обеспечиваем только один рекорд на пользователя
+                FOREIGN KEY (user_id) REFERENCES users (id)
             )
         ''')
         
@@ -54,34 +60,35 @@ def init_db():
         if db:
             db.close()
 
-def get_client_ip():
-    if request.headers.getlist("X-Forwarded-For"):
-        return request.headers.getlist("X-Forwarded-For")[0]
-    return request.remote_addr
-
 @app.route('/api/identify', methods=['GET'])
 def identify_user():
     try:
-        ip_address = get_client_ip()
         db = get_db_connection()
         
+        # Проверяем наличие session_id в куках
+        session_id = request.cookies.get('session_id')
+        
+        if not session_id:
+            # Создаем новый session_id
+            session_id = str(uuid.uuid4())
+        
         user = db.execute(
-            'SELECT * FROM users WHERE ip_address = ?', 
-            (ip_address,)
+            'SELECT * FROM users WHERE session_id = ?', 
+            (session_id,)
         ).fetchone()
         
         if not user:
             # Создаем нового пользователя
-            default_name = f"Игрок_{ip_address.replace('.', '_')[-5:]}"
+            default_name = f"Игрок_{session_id[:8]}"
             db.execute('''
-                INSERT INTO users (ip_address, display_name, created_at, last_seen_at)
+                INSERT INTO users (session_id, display_name, created_at, last_seen_at)
                 VALUES (?, ?, ?, ?)
-            ''', (ip_address, default_name, datetime.now().isoformat(), datetime.now().isoformat()))
+            ''', (session_id, default_name, datetime.now().isoformat(), datetime.now().isoformat()))
             db.commit()
             
             user = db.execute(
-                'SELECT * FROM users WHERE ip_address = ?', 
-                (ip_address,)
+                'SELECT * FROM users WHERE session_id = ?', 
+                (session_id,)
             ).fetchone()
         
         # Обновляем время последнего посещения
@@ -91,7 +98,9 @@ def identify_user():
         )
         db.commit()
         
-        return jsonify(dict(user))
+        response = jsonify(dict(user))
+        response.set_cookie('session_id', session_id, max_age=60*60*24*30)  # 30 дней
+        return response
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -101,9 +110,11 @@ def identify_user():
 @app.route('/api/user/update', methods=['POST'])
 def update_profile():
     try:
-        ip_address = get_client_ip()
+        session_id = request.cookies.get('session_id')
+        if not session_id:
+            return jsonify({'error': 'Сессия не найдена'}), 401
+            
         data = request.get_json()
-        
         if not data or 'display_name' not in data:
             return jsonify({'error': 'Необходимо указать имя'}), 400
             
@@ -112,14 +123,14 @@ def update_profile():
         db.execute('''
             UPDATE users 
             SET display_name = ?
-            WHERE ip_address = ?
-        ''', (data['display_name'], ip_address))
+            WHERE session_id = ?
+        ''', (data['display_name'], session_id))
         
         db.commit()
         
         user = db.execute(
-            'SELECT * FROM users WHERE ip_address = ?', 
-            (ip_address,)
+            'SELECT * FROM users WHERE session_id = ?', 
+            (session_id,)
         ).fetchone()
         
         return jsonify(dict(user))
@@ -132,42 +143,29 @@ def update_profile():
 @app.route('/api/save_score', methods=['POST'])
 def save_score():
     try:
-        ip_address = get_client_ip()
+        session_id = request.cookies.get('session_id')
+        if not session_id:
+            return jsonify({'error': 'Сессия не найдена'}), 401
+            
         data = request.get_json()
-        
         if not data or 'score' not in data:
             return jsonify({'error': 'Необходимо указать счет'}), 400
             
         db = get_db_connection()
         
         user = db.execute(
-            'SELECT id FROM users WHERE ip_address = ?', 
-            (ip_address,)
+            'SELECT id FROM users WHERE session_id = ?', 
+            (session_id,)
         ).fetchone()
         
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
         
-        # Проверяем существующий рекорд
-        existing_score = db.execute(
-            'SELECT score FROM scores WHERE user_id = ?',
-            (user['id'],)
-        ).fetchone()
-        
-        if existing_score:
-            # Обновляем только если новый рекорд лучше
-            if data['score'] > existing_score['score']:
-                db.execute('''
-                    UPDATE scores 
-                    SET score = ?, date = ?
-                    WHERE user_id = ?
-                ''', (data['score'], datetime.now().isoformat(), user['id']))
-        else:
-            # Создаем новый рекорд
-            db.execute('''
-                INSERT INTO scores (user_id, score, date)
-                VALUES (?, ?, ?)
-            ''', (user['id'], data['score'], datetime.now().isoformat()))
+        # Всегда сохраняем новый результат (история рекордов)
+        db.execute('''
+            INSERT INTO scores (user_id, score, date)
+            VALUES (?, ?, ?)
+        ''', (user['id'], data['score'], datetime.now().isoformat()))
         
         db.commit()
         return jsonify({'status': 'success'})
@@ -181,11 +179,13 @@ def save_score():
 def get_scores():
     try:
         db = get_db_connection()
+        # Берем лучший результат каждого пользователя
         scores = db.execute('''
-            SELECT u.display_name as player, s.score, s.date
+            SELECT u.display_name as player, MAX(s.score) as score, s.date
             FROM scores s
             JOIN users u ON s.user_id = u.id
-            ORDER BY s.score DESC 
+            GROUP BY u.id
+            ORDER BY score DESC 
             LIMIT 100
         ''').fetchall()
         return jsonify([dict(row) for row in scores])
@@ -198,4 +198,4 @@ if __name__ == '__main__':
     if not os.path.exists(DATABASE):
         init_db()
     port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port)
