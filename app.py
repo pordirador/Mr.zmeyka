@@ -30,14 +30,24 @@ CORS(app, resources={
 
 # Подключение к PostgreSQL
 def get_db():
-    conn = psycopg2.connect(
-        host=os.getenv('DB_HOST'),
-        database=os.getenv('DB_NAME'),
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'),
-        cursor_factory=RealDictCursor
-    )
-    return conn
+    # Попробуем сначала использовать DATABASE_URL, если он есть
+    if 'DATABASE_URL' in os.environ:
+        return psycopg2.connect(os.environ['DATABASE_URL'], sslmode='require')
+    
+    # Если нет, используем отдельные переменные
+    try:
+        conn = psycopg2.connect(
+            host=os.getenv('DB_HOST'),
+            database=os.getenv('DB_NAME'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'),
+            cursor_factory=RealDictCursor,
+            sslmode='require'  # Важно для Render
+        )
+        return conn
+    except Exception as e:
+        logger.error(f"Ошибка подключения к БД: {e}")
+        raise
 
 # Инициализация БД
 def init_db():
