@@ -7,18 +7,20 @@ import uuid
 import logging
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')  # Для production используйте настоящий секретный ключ
 
 # Настройка логгирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Настройки CORS
+# Настройки CORS с поддержкой credentials
 CORS(app, resources={
     r"/api/*": {
-        "origins": "*",
+        "origins": ["https://ваш-фронтенд.домен", "http://localhost:*"],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"],
-        "supports_credentials": True
+        "supports_credentials": True,
+        "expose_headers": ["Set-Cookie"]
     }
 })
 
@@ -40,12 +42,19 @@ def init_db():
     try:
         with get_db_connection() as db:
             db.execute('''
+                CREATE TABLE IF NOT EXISTS sessions (
+                    session_id TEXT PRIMARY KEY,
+                    user_id INTEGER,
+                    created_at TEXT NOT NULL,
+                    last_activity TEXT NOT NULL
+                )
+            ''')
+            
+            db.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT UNIQUE NOT NULL,
                     display_name TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    last_seen_at TEXT NOT NULL
+                    created_at TEXT NOT NULL
                 )
             ''')
             
@@ -59,15 +68,13 @@ def init_db():
                 )
             ''')
             
-            db.execute('CREATE INDEX IF NOT EXISTS idx_scores_user_score ON scores(user_id, score)')
-            
             db.commit()
         logger.info("База данных успешно инициализирована")
     except Exception as e:
         logger.error(f"Ошибка инициализации БД: {str(e)}")
         raise
 
-# Инициализация БД при старте приложения
+# Инициализация БД при старте
 with app.app_context():
     if not os.path.exists(DATABASE):
         init_db()
@@ -75,159 +82,165 @@ with app.app_context():
 @app.route('/api/healthcheck', methods=['GET'])
 def healthcheck():
     return jsonify({
-        'status': 'ok', 
-        'database': DATABASE,
-        'app': 'Snake Game API',
-        'version': '1.0'
+        'status': 'ok',
+        'session': bool(request.cookies.get('session_id'))
     })
 
-@app.route('/api/identify', methods=['GET'])
-def identify_user():
+@app.route('/api/session', methods=['GET', 'POST'])
+def handle_session():
     try:
-        session_id = request.cookies.get('snake_game_session')
+        session_id = request.cookies.get('session_id')
         
+        # Если сессия не существует
         if not session_id:
             session_id = str(uuid.uuid4())
             logger.info(f"Создана новая сессия: {session_id}")
+            
+            with get_db_connection() as db:
+                # Создаем новую сессию
+                db.execute(
+                    'INSERT INTO sessions (session_id, created_at, last_activity) VALUES (?, ?, ?)',
+                    (session_id, datetime.now().isoformat(), datetime.now().isoformat())
+                )
+                
+                # Создаем нового пользователя
+                db.execute(
+                    'INSERT INTO users (display_name, created_at) VALUES (?, ?)',
+                    (f"Игрок_{session_id[:5]}", datetime.now().isoformat())
+                )
+                user_id = db.lastrowid
+                
+                # Связываем пользователя с сессией
+                db.execute(
+                    'UPDATE sessions SET user_id = ? WHERE session_id = ?',
+                    (user_id, session_id)
+                )
+                db.commit()
         
+        # Обновляем активность сессии
         with get_db_connection() as db:
+            db.execute(
+                'UPDATE sessions SET last_activity = ? WHERE session_id = ?',
+                (datetime.now().isoformat(), session_id)
+            )
+            db.commit()
+            
+            # Получаем данные пользователя
             user = db.execute(
-                'SELECT * FROM users WHERE session_id = ?', 
+                'SELECT u.id, u.display_name FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.session_id = ?',
                 (session_id,)
             ).fetchone()
             
             if not user:
-                default_name = f"Игрок_{session_id[:5]}"
-                db.execute('''
-                    INSERT INTO users (session_id, display_name, created_at, last_seen_at)
-                    VALUES (?, ?, ?, ?)
-                ''', (session_id, default_name, datetime.now().isoformat(), datetime.now().isoformat()))
-                db.commit()
-                
-                user = db.execute(
-                    'SELECT * FROM users WHERE session_id = ?', 
-                    (session_id,)
-                ).fetchone()
-                logger.info(f"Создан новый пользователь: {user['id']}")
-            
-            db.execute(
-                'UPDATE users SET last_seen_at = ? WHERE id = ?',
-                (datetime.now().isoformat(), user['id'])
-            )
-            db.commit()
+                return jsonify({'error': 'Пользователь не найден'}), 404
             
             response = make_response(jsonify({
-                'id': user['id'],
+                'user_id': user['id'],
                 'display_name': user['display_name']
             }))
             
+            # Устанавливаем/обновляем куку
             response.set_cookie(
-                'snake_game_session',
+                'session_id',
                 session_id,
-                max_age=60*60*24*30,
+                max_age=60*60*24*30,  # 30 дней
                 httponly=True,
-                samesite='Lax',
-                secure=True if 'RENDER' in os.environ else False
+                samesite='None' if 'RENDER' in os.environ else 'Lax',
+                secure=True,
+                path='/'
             )
             
             return response
             
     except Exception as e:
-        logger.error(f"Ошибка идентификации: {str(e)}")
+        logger.error(f"Ошибка работы с сессией: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/api/user/update', methods=['POST'])
-def update_profile():
+@app.route('/api/user', methods=['GET', 'PUT'])
+def handle_user():
     try:
-        session_id = request.cookies.get('snake_game_session')
+        session_id = request.cookies.get('session_id')
         if not session_id:
             return jsonify({'error': 'Сессия не найдена'}), 401
             
-        data = request.get_json()
-        if not data or 'display_name' not in data or len(data['display_name'].strip()) < 2:
-            return jsonify({'error': 'Имя должно содержать минимум 2 символа'}), 400
-            
-        with get_db_connection() as db:
-            db.execute('''
-                UPDATE users 
-                SET display_name = ?
-                WHERE session_id = ?
-            ''', (data['display_name'].strip(), session_id))
-            db.commit()
-            
-            updated_user = db.execute(
-                'SELECT * FROM users WHERE session_id = ?', 
-                (session_id,)
-            ).fetchone()
-            
-            if not updated_user:
-                return jsonify({'error': 'Пользователь не найден'}), 404
+        if request.method == 'GET':
+            with get_db_connection() as db:
+                user = db.execute(
+                    'SELECT u.id, u.display_name FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.session_id = ?',
+                    (session_id,)
+                ).fetchone()
                 
-            return jsonify({
-                'id': updated_user['id'],
-                'display_name': updated_user['display_name'],
-                'status': 'updated'
-            })
-            
+                if not user:
+                    return jsonify({'error': 'Пользователь не найден'}), 404
+                
+                return jsonify(dict(user))
+                
+        elif request.method == 'PUT':
+            data = request.get_json()
+            if not data or 'display_name' not in data or len(data['display_name'].strip()) < 2:
+                return jsonify({'error': 'Имя должно содержать минимум 2 символа'}), 400
+                
+            with get_db_connection() as db:
+                db.execute(
+                    'UPDATE users SET display_name = ? WHERE id = (SELECT user_id FROM sessions WHERE session_id = ?)',
+                    (data['display_name'].strip(), session_id)
+                )
+                db.commit()
+                
+                user = db.execute(
+                    'SELECT u.id, u.display_name FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.session_id = ?',
+                    (session_id,)
+                ).fetchone()
+                
+                return jsonify(dict(user))
+                
     except Exception as e:
-        logger.error(f"Ошибка обновления профиля: {str(e)}")
+        logger.error(f"Ошибка работы с пользователем: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/api/save_score', methods=['POST'])
-def save_score():
+@app.route('/api/scores', methods=['GET', 'POST'])
+def handle_scores():
     try:
-        session_id = request.cookies.get('snake_game_session')
+        session_id = request.cookies.get('session_id')
         if not session_id:
             return jsonify({'error': 'Сессия не найдена'}), 401
-            
-        data = request.get_json()
-        if not data or 'score' not in data or not isinstance(data['score'], int):
-            return jsonify({'error': 'Некорректный счёт'}), 400
             
         with get_db_connection() as db:
             user = db.execute(
-                'SELECT id FROM users WHERE session_id = ?', 
+                'SELECT user_id FROM sessions WHERE session_id = ?',
                 (session_id,)
             ).fetchone()
             
             if not user:
                 return jsonify({'error': 'Пользователь не найден'}), 404
+                
+            user_id = user['user_id']
             
-            db.execute('''
-                INSERT INTO scores (user_id, score, date)
-                VALUES (?, ?, ?)
-            ''', (user['id'], data['score'], datetime.now().isoformat()))
-            db.commit()
-            
-            return jsonify({
-                'status': 'success',
-                'saved_score': data['score']
-            })
-            
+            if request.method == 'POST':
+                data = request.get_json()
+                if not data or 'score' not in data or not isinstance(data['score'], int):
+                    return jsonify({'error': 'Некорректный счёт'}), 400
+                    
+                db.execute(
+                    'INSERT INTO scores (user_id, score, date) VALUES (?, ?, ?)',
+                    (user_id, data['score'], datetime.now().isoformat())
+                )
+                db.commit()
+                return jsonify({'status': 'success'})
+                
+            elif request.method == 'GET':
+                scores = db.execute('''
+                    SELECT u.display_name as player, s.score, s.date 
+                    FROM scores s
+                    JOIN users u ON s.user_id = u.id
+                    ORDER BY s.score DESC
+                    LIMIT 100
+                ''').fetchall()
+                
+                return jsonify([dict(score) for score in scores])
+                
     except Exception as e:
-        logger.error(f"Ошибка сохранения счёта: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@app.route('/api/get_scores', methods=['GET'])
-def get_scores():
-    try:
-        with get_db_connection() as db:
-            scores = db.execute('''
-                SELECT 
-                    u.display_name as player, 
-                    MAX(s.score) as score, 
-                    MAX(s.date) as date
-                FROM scores s
-                JOIN users u ON s.user_id = u.id
-                GROUP BY u.id
-                ORDER BY score DESC 
-                LIMIT 100
-            ''').fetchall()
-            
-            return jsonify([dict(score) for score in scores])
-            
-    except Exception as e:
-        logger.error(f"Ошибка получения рекордов: {str(e)}")
+        logger.error(f"Ошибка работы с рекордами: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
