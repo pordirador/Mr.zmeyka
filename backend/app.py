@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify
 import sqlite3
 from datetime import datetime
 from flask_cors import CORS
-import hashlib
 import os
 
 app = Flask(__name__)
@@ -30,7 +29,6 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ip_address TEXT UNIQUE NOT NULL,
                 display_name TEXT NOT NULL,
-                avatar_url TEXT,
                 created_at TEXT NOT NULL,
                 last_seen_at TEXT NOT NULL
             )
@@ -42,7 +40,8 @@ def init_db():
                 user_id INTEGER NOT NULL,
                 score INTEGER NOT NULL,
                 date TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users (id)
+                FOREIGN KEY (user_id) REFERENCES users (id),
+                UNIQUE(user_id)  -- Обеспечиваем только один рекорд на пользователя
             )
         ''')
         
@@ -73,7 +72,7 @@ def identify_user():
         
         if not user:
             # Создаем нового пользователя
-            default_name = f"Игрок_{ip_address.replace('.', '_')}"
+            default_name = f"Игрок_{ip_address.replace('.', '_')[-5:]}"
             db.execute('''
                 INSERT INTO users (ip_address, display_name, created_at, last_seen_at)
                 VALUES (?, ?, ?, ?)
@@ -112,9 +111,9 @@ def update_profile():
         
         db.execute('''
             UPDATE users 
-            SET display_name = ?, avatar_url = ?
+            SET display_name = ?
             WHERE ip_address = ?
-        ''', (data['display_name'], data.get('avatar_url'), ip_address))
+        ''', (data['display_name'], ip_address))
         
         db.commit()
         
@@ -149,10 +148,26 @@ def save_score():
         if not user:
             return jsonify({'error': 'Пользователь не найден'}), 404
         
-        db.execute('''
-            INSERT INTO scores (user_id, score, date)
-            VALUES (?, ?, ?)
-        ''', (user['id'], data['score'], datetime.now().isoformat()))
+        # Проверяем существующий рекорд
+        existing_score = db.execute(
+            'SELECT score FROM scores WHERE user_id = ?',
+            (user['id'],)
+        ).fetchone()
+        
+        if existing_score:
+            # Обновляем только если новый рекорд лучше
+            if data['score'] > existing_score['score']:
+                db.execute('''
+                    UPDATE scores 
+                    SET score = ?, date = ?
+                    WHERE user_id = ?
+                ''', (data['score'], datetime.now().isoformat(), user['id']))
+        else:
+            # Создаем новый рекорд
+            db.execute('''
+                INSERT INTO scores (user_id, score, date)
+                VALUES (?, ?, ?)
+            ''', (user['id'], data['score'], datetime.now().isoformat()))
         
         db.commit()
         return jsonify({'status': 'success'})
@@ -173,34 +188,6 @@ def get_scores():
             ORDER BY s.score DESC 
             LIMIT 100
         ''').fetchall()
-        return jsonify([dict(row) for row in scores])
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        db.close()
-
-@app.route('/api/my_scores', methods=['GET'])
-def get_my_scores():
-    try:
-        ip_address = get_client_ip()
-        db = get_db_connection()
-        
-        user = db.execute(
-            'SELECT id FROM users WHERE ip_address = ?', 
-            (ip_address,)
-        ).fetchone()
-        
-        if not user:
-            return jsonify({'error': 'Пользователь не найден'}), 404
-        
-        scores = db.execute('''
-            SELECT score, date
-            FROM scores
-            WHERE user_id = ?
-            ORDER BY score DESC
-            LIMIT 10
-        ''', (user['id'],)).fetchall()
-        
         return jsonify([dict(row) for row in scores])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
