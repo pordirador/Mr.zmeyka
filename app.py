@@ -118,14 +118,15 @@ def init_session():
                 
                 # Устанавливаем куку на 1 год
                 response.set_cookie(
-                    'game_session',
-                    session_id,
-                    max_age=31536000,
-                    httponly=True,
-                    samesite='None' if 'RENDER' in os.environ else 'Lax',
-                    secure=True,
-                    path='/'
-                )
+    'game_session',
+    session_id,
+    max_age=31536000,
+    httponly=True,
+    samesite='None',
+    secure=True,
+    path='/',
+    domain='.render.com'  # Добавьте это
+)
                 
                 return response
         
