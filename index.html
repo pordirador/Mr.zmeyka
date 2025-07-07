@@ -667,127 +667,133 @@
             }
         }, { passive: false });
         
-        // ========== СИСТЕМА ПОЛЬЗОВАТЕЛЕЙ ==========
-        async function identifyUser() {
-            try {
-                const response = await fetch(`${API_URL}/api/init`);
-                if (response.ok) {
-                    currentUser = await response.json();
-                    updateProfileButton();
-                    showToast(`Добро пожаловать, ${currentUser.display_name || 'Игрок'}!`);
-                } else {
-                    const error = await response.json();
-                    showToast(error.error || 'Ошибка идентификации');
-                }
-            } catch (error) {
-                showToast('Ошибка соединения');
-                console.error('Ошибка идентификации:', error);
-            }
+// ========== СИСТЕМА ПОЛЬЗОВАТЕЛЕЙ ==========
+async function identifyUser() {
+    try {
+        const response = await fetch(`${API_URL}/api/init`, {
+            credentials: 'include'  // Добавлено для работы с куками
+        });
+        if (response.ok) {
+            currentUser = await response.json();
+            updateProfileButton();
+            showToast(`Добро пожаловать, ${currentUser.display_name || 'Игрок'}!`);
+        } else {
+            const error = await response.json();
+            showToast(error.error || 'Ошибка идентификации');
+        }
+    } catch (error) {
+        showToast('Ошибка соединения');
+        console.error('Ошибка идентификации:', error);
+    }
+}
+
+async function updateProfile() {
+    const newName = profileNameInput.value.trim();
+    if (!newName) {
+        showToast('Введите имя');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/api/user`, {
+            method: 'PUT',  // Исправлено с POST на PUT
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                display_name: newName
+            }),
+            credentials: 'include'  // Добавлено для работы с куками
+        });
+        
+        if (response.ok) {
+            currentUser = await response.json();
+            updateProfileButton();
+            profileModal.style.display = 'none';
+            showToast('Профиль обновлен!');
+        } else {
+            const error = await response.json();
+            showToast(error.error || 'Ошибка обновления профиля');
+        }
+    } catch (error) {
+        showToast('Ошибка соединения');
+        console.error('Ошибка обновления профиля:', error);
+    }
+}
+
+// ========== РАБОТА С API ==========
+async function saveScore() {
+    if (!currentUser || score === 0) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/api/scores`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                score: score 
+            }),
+            credentials: 'include'  // Добавлено для работы с куками
+        });
+        
+        if (!response.ok) {
+            throw new Error('Ошибка сохранения результата');
         }
         
-        async function updateProfile() {
-            const newName = profileNameInput.value.trim();
-            if (!newName) {
-                showToast('Введите имя');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_URL}/api/user`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        display_name: newName
-                    })
-                });
-                
-                if (response.ok) {
-                    currentUser = await response.json();
-                    updateProfileButton();
-                    profileModal.style.display = 'none';
-                    showToast('Профиль обновлен!');
-                } else {
-                    const error = await response.json();
-                    showToast(error.error || 'Ошибка обновления профиля');
-                }
-            } catch (error) {
-                showToast('Ошибка соединения');
-                console.error('Ошибка обновления профиля:', error);
-            }
+        return await response.json();
+        
+    } catch (error) {
+        console.error('Ошибка сохранения:', error);
+        return null;
+    }
+}
+
+async function loadLeaderboard(targetElement = topPlayersList, limit = 5) {
+    try {
+        // Показываем состояние загрузки
+        targetElement.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Загрузка...</li>';
+        
+        const response = await fetch(`${API_URL}/api/scores`, {
+            credentials: 'include'  // Добавлено для работы с куками
+        });
+        
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки таблицы лидеров');
         }
         
-        // ========== РАБОТА С API ==========
-        async function saveScore() {
-            if (!currentUser || score === 0) return;
-            
-            try {
-                const response = await fetch(`${API_URL}/api/scores`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        score: score 
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Ошибка сохранения результата');
-                }
-                
-                return await response.json();
-                
-            } catch (error) {
-                console.error('Ошибка сохранения:', error);
-                return null;
-            }
+        const scores = await response.json();
+        
+        // Очищаем и заполняем таблицу
+        targetElement.innerHTML = '';
+        
+        if (!scores || scores.length === 0) {
+            targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
+            return;
         }
         
-        async function loadLeaderboard(targetElement = topPlayersList, limit = 5) {
-            try {
-                // Показываем состояние загрузки
-                targetElement.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Загрузка...</li>';
-                
-                const response = await fetch(`${API_URL}/api/scores`);
-                
-                if (!response.ok) {
-                    throw new Error('Ошибка загрузки таблицы лидеров');
-                }
-                
-                const scores = await response.json();
-                
-                // Очищаем и заполняем таблицу
-                targetElement.innerHTML = '';
-                
-                if (!scores || scores.length === 0) {
-                    targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
-                    return;
-                }
-                
-                const itemsToShow = limit ? scores.slice(0, limit) : scores;
-                
-                itemsToShow.forEach((item, index) => {
-                    const li = document.createElement('li');
-                    li.textContent = `${index + 1}. ${item.player}: ${item.score || 0}`;
-                    if (item.date) {
-                        const date = new Date(item.date);
-                        const dateStr = date.toLocaleDateString();
-                        const small = document.createElement('small');
-                        small.textContent = ` (${dateStr})`;
-                        small.style.opacity = '0.7';
-                        li.appendChild(small);
-                    }
-                    targetElement.appendChild(li);
-                });
-                
-            } catch (error) {
-                console.error('Ошибка загрузки рекордов:', error);
-                targetElement.innerHTML = '<li class="no-scores">Не удалось загрузить рекорды<br><small>Попробуйте позже</small></li>';
-            }
-        }
+        const itemsToShow = limit ? scores.slice(0, limit) : scores;
         
+        itemsToShow.forEach((item, index) => {
+            const li = document.createElement('li');
+            // Исправлено item.player на item.display_name
+            li.textContent = `${index + 1}. ${item.display_name}: ${item.score || 0}`;
+            if (item.date) {
+                const date = new Date(item.date);
+                const dateStr = date.toLocaleDateString();
+                const small = document.createElement('small');
+                small.textContent = ` (${dateStr})`;
+                small.style.opacity = '0.7';
+                li.appendChild(small);
+            }
+            targetElement.appendChild(li);
+        });
+        
+    } catch (error) {
+        console.error('Ошибка загрузки рекордов:', error);
+        targetElement.innerHTML = '<li class="no-scores">Не удалось загрузить рекорды<br><small>Попробуйте позже</small></li>';
+    }
+}
         // Запуск игры при загрузке страницы
         window.addEventListener('load', init);
     </script>
