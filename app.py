@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Настройки CORS
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["https://pordirador.github.io/Mr.zmeyka/", "http://localhost:*"],
+        "origins": ["https://pordirador.github.io", "http://localhost:*"],
         "methods": ["GET", "POST", "PUT", "OPTIONS"],
         "allow_headers": ["Content-Type"],
         "supports_credentials": True,
