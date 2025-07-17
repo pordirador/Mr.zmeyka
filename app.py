@@ -46,15 +46,15 @@ def get_db():
 def init_db():
     try:
         with get_db() as conn, conn.cursor() as cur:
-            # Проверяем существование таблиц
+            # Проверка существования таблиц
             cur.execute("""
                 SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_name = 'users'
+                    SELECT FROM pg_tables 
+                    WHERE schemaname = 'public' 
+                    AND tablename = 'users'
                 )
             """)
             if not cur.fetchone()[0]:
-                # Создаем таблицы, если их нет
                 cur.execute("""
                     CREATE TABLE users (
                         id SERIAL PRIMARY KEY,
@@ -64,25 +64,13 @@ def init_db():
                         last_seen_at TIMESTAMP NOT NULL DEFAULT NOW()
                     )
                 """)
-                
-                cur.execute("""
-                    CREATE TABLE scores (
-                        id SERIAL PRIMARY KEY,
-                        user_id INTEGER REFERENCES users(id),
-                        score INTEGER NOT NULL,
-                        date TIMESTAMP NOT NULL DEFAULT NOW()
-                    )
-                """)
-                
+                # ... остальные таблицы
                 conn.commit()
-                logger.info("Таблицы созданы успешно")
-            else:
-                logger.info("Таблицы уже существуют")
     except Exception as e:
         logger.error(f"Ошибка инициализации БД: {e}")
         raise
-
 @app.route('/api/init', methods=['GET'])
+
 def init_session():
     """Инициализация сессии и пользователя"""
     try:
