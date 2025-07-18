@@ -4,21 +4,26 @@ from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 import uuid
 import logging
-import psycopg2
-from psycopg2 import pool, OperationalError
-from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
+import firebase_admin
+from firebase_admin import credentials, db
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 
+# Инициализация Firebase
+cred = credentials.Certificate("firebase-service-account.json")  # Ваш сервисный аккаунт
+firebase_admin.initialize_app(cred, {
+    'databaseURL': os.getenv('FIREBASE_DB_URL')
+})
+
 # Настройка логгирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Настройки CORS
+# Настройки CORS (остаются без изменений)
 CORS(app, resources={
     r"/api/*": {
         "origins": ["https://pordirador.github.io", "http://localhost:*"],
@@ -29,285 +34,162 @@ CORS(app, resources={
     }
 })
 
-# Пул соединений PostgreSQL
-connection_pool = None
+# Firebase Helpers
+def get_user_ref(session_id):
+    return db.reference(f'users/{session_id}')
 
-def init_db_pool():
-    global connection_pool
-    max_retries = 3
-    retry_delay = 2
-    
-    for attempt in range(max_retries):
-        try:
-            connection_pool = pool.SimpleConnectionPool(
-                minconn=1,
-                maxconn=5,
-                dsn=os.getenv('DATABASE_URL'),
-                sslmode='require',
-                connect_timeout=3,
-                keepalives=1,
-                keepalives_idle=30,
-                keepalives_interval=10
-            )
-            logger.info("Пул соединений к PostgreSQL инициализирован")
-            return True
-        except OperationalError as e:
-            logger.error(f"Попытка {attempt + 1}/{max_retries} не удалась: {str(e)}")
-            if attempt < max_retries - 1:
-                time.sleep(retry_delay)
-    
-    logger.critical("Не удалось инициализировать пул соединений")
-    return False
-
-def get_db_connection():
-    max_retries = 2
-    retry_delay = 1
-    
-    for attempt in range(max_retries):
-        try:
-            return connection_pool.getconn()
-        except OperationalError as e:
-            logger.warning(f"Ошибка подключения (попытка {attempt + 1}): {str(e)}")
-            if attempt < max_retries - 1:
-                time.sleep(retry_delay)
-    
-    raise OperationalError("Не удалось получить соединение из пула")
-
-def init_db_schema():
-    conn = None
-    try:
-        conn = get_db_connection()
-        with conn.cursor() as cur:
-            # Создаем таблицы, если их нет
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id SERIAL PRIMARY KEY,
-                    session_id VARCHAR(36) UNIQUE NOT NULL,
-                    display_name VARCHAR(50) NOT NULL DEFAULT 'Player',
-                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                    last_seen_at TIMESTAMP NOT NULL DEFAULT NOW()
-                )
-            """)
-            
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS scores (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER REFERENCES users(id),
-                    score INTEGER NOT NULL,
-                    date TIMESTAMP NOT NULL DEFAULT NOW()
-                )
-            """)
-            conn.commit()
-            logger.info("Схема БД успешно инициализирована")
-    except Exception as e:
-        logger.error(f"Ошибка инициализации схемы БД: {str(e)}")
-        raise
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
-
-# Инициализация при старте
-if not init_db_pool():
-    exit(1)
-init_db_schema()
+def get_scores_ref():
+    return db.reference('scores')
 
 @app.route('/api/init', methods=['GET'])
 def init_session():
-    conn = None
     try:
         session_id = request.cookies.get('game_session')
         
         if not session_id:
             session_id = str(uuid.uuid4())
-            logger.info(f"Создана новая сессия: {session_id}")
+            logger.info(f"Новая сессия: {session_id}")
             
-            conn = get_db_connection()
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO users (session_id)
-                    VALUES (%s)
-                    ON CONFLICT (session_id) DO NOTHING
-                    RETURNING id, display_name
-                """, (session_id,))
-                
-                user = cur.fetchone()
-                if not user:
-                    cur.execute("SELECT id, display_name FROM users WHERE session_id = %s", (session_id,))
-                    user = cur.fetchone()
-                
-                conn.commit()
-                
-                response = make_response(jsonify({
-                    'user_id': user['id'],
-                    'display_name': user['display_name'],
-                    'session_id': session_id
-                }))
-                
-                response.set_cookie(
-                    'game_session',
-                    session_id,
-                    max_age=31536000,  # 1 год
-                    httponly=True,
-                    samesite='None',
-                    secure=True,
-                    path='/'
-                )
-                return response
-        
-        conn = get_db_connection()
-        with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE users 
-                SET last_seen_at = NOW()
-                WHERE session_id = %s
-                RETURNING id, display_name
-            """, (session_id,))
-            
-            user = cur.fetchone()
-            conn.commit()
-            
-            if not user:
-                return init_session()
-            
-            return jsonify({
-                'user_id': user['id'],
-                'display_name': user['display_name'],
-                'session_id': session_id
+            # Создаем нового пользователя в Firebase
+            user_ref = get_user_ref(session_id)
+            user_ref.set({
+                'display_name': 'Player',
+                'created_at': {'.sv': 'timestamp'},
+                'last_seen_at': {'.sv': 'timestamp'}
             })
             
+            response = make_response(jsonify({
+                'user_id': session_id,
+                'display_name': 'Player',
+                'session_id': session_id
+            }))
+            
+            response.set_cookie(
+                'game_session',
+                session_id,
+                max_age=31536000,
+                httponly=True,
+                samesite='None',
+                secure=True,
+                path='/'
+            )
+            return response
+        
+        # Обновляем время последнего посещения
+        get_user_ref(session_id).update({
+            'last_seen_at': {'.sv': 'timestamp'}
+        })
+        
+        user_data = get_user_ref(session_id).get()
+        
+        return jsonify({
+            'user_id': session_id,
+            'display_name': user_data.get('display_name', 'Player'),
+            'session_id': session_id
+        })
+            
     except Exception as e:
-        logger.error(f"Ошибка инициализации сессии: {str(e)}")
+        logger.error(f"Ошибка сессии: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
 
 @app.route('/api/user', methods=['GET', 'PUT'])
 def user_profile():
-    conn = None
     try:
         session_id = request.cookies.get('game_session')
         if not session_id:
             return jsonify({'error': 'Session not found'}), 401
             
-        conn = get_db_connection()
-        with conn.cursor() as cur:
-            if request.method == 'GET':
-                cur.execute("""
-                    SELECT id, display_name 
-                    FROM users 
-                    WHERE session_id = %s
-                """, (session_id,))
+        user_ref = get_user_ref(session_id)
+        
+        if request.method == 'GET':
+            user_data = user_ref.get()
+            if not user_data:
+                return jsonify({'error': 'User not found'}), 404
                 
-                user = cur.fetchone()
-                if not user:
-                    return jsonify({'error': 'User not found'}), 404
-                    
-                return jsonify({
-                    'user_id': user['id'],
-                    'display_name': user['display_name']
-                })
-                
-            elif request.method == 'PUT':
-                data = request.get_json()
-                new_name = data.get('display_name', '').strip()
-                
-                if len(new_name) < 2:
-                    return jsonify({'error': 'Name too short'}), 400
-                
-                cur.execute("""
-                    UPDATE users
-                    SET display_name = %s
-                    WHERE session_id = %s
-                    RETURNING id, display_name
-                """, (new_name, session_id))
-                
-                user = cur.fetchone()
-                conn.commit()
-                
-                if not user:
-                    return jsonify({'error': 'User not found'}), 404
-                    
-                return jsonify({
-                    'user_id': user['id'],
-                    'display_name': user['display_name']
-                })
+            return jsonify({
+                'user_id': session_id,
+                'display_name': user_data.get('display_name', 'Player')
+            })
+            
+        elif request.method == 'PUT':
+            data = request.get_json()
+            new_name = data.get('display_name', '').strip()
+            
+            if len(new_name) < 2:
+                return jsonify({'error': 'Name too short'}), 400
+            
+            user_ref.update({
+                'display_name': new_name
+            })
+            
+            return jsonify({
+                'user_id': session_id,
+                'display_name': new_name
+            })
                 
     except Exception as e:
         logger.error(f"Ошибка работы с профилем: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
 
 @app.route('/api/scores', methods=['GET', 'POST'])
 def handle_scores():
-    conn = None
     try:
         session_id = request.cookies.get('game_session')
         if not session_id:
             return jsonify({'error': 'Session not found'}), 401
             
-        conn = get_db_connection()
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            if request.method == 'POST':
-                data = request.get_json()
-                score = data.get('score')
+        if request.method == 'POST':
+            data = request.get_json()
+            score = data.get('score')
+            
+            if not isinstance(score, int) or score < 0:
+                return jsonify({'error': 'Invalid score'}), 400
+            
+            # Получаем данные пользователя
+            user_data = get_user_ref(session_id).get()
+            if not user_data:
+                return jsonify({'error': 'User not found'}), 404
+            
+            # Сохраняем результат
+            new_score_ref = get_scores_ref().push()
+            new_score_ref.set({
+                'user_id': session_id,
+                'display_name': user_data.get('display_name', 'Player'),
+                'score': score,
+                'date': {'.sv': 'timestamp'}
+            })
+            
+            return jsonify({'status': 'success'})
+            
+        elif request.method == 'GET':
+            # Получаем топ-10 результатов
+            scores = get_scores_ref().order_by_child('score').limit_to_last(10).get()
+            if not scores:
+                return jsonify([])
                 
-                if not isinstance(score, int) or score < 0:
-                    return jsonify({'error': 'Invalid score'}), 400
-                
-                cur.execute("SELECT id FROM users WHERE session_id = %s", (session_id,))
-                user = cur.fetchone()
-                
-                if not user:
-                    return jsonify({'error': 'User not found'}), 404
-                
-                cur.execute("""
-                    INSERT INTO scores (user_id, score)
-                    VALUES (%s, %s)
-                """, (user['id'], score))
-                conn.commit()
-                
-                return jsonify({'status': 'success'})
-                
-            elif request.method == 'GET':
-                cur.execute("""
-                    SELECT u.display_name, s.score, s.date
-                    FROM scores s
-                    JOIN users u ON s.user_id = u.id
-                    ORDER BY s.score DESC
-                    LIMIT 10
-                """)
-                return jsonify(cur.fetchall())
+            # Сортируем по убыванию score
+            sorted_scores = sorted(scores.values(), key=lambda x: -x['score'])
+            return jsonify(sorted_scores)
                 
     except Exception as e:
         logger.error(f"Ошибка работы с рекордами: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
     try:
-        conn = get_db_connection()
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1")
-            return jsonify({
-                'status': 'healthy',
-                'database': 'connected',
-                'timestamp': datetime.now().isoformat()
-            })
+        # Простая проверка доступности Firebase
+        db.reference('healthcheck').set({'status': 'ok'})
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'timestamp': {'.sv': 'timestamp'}
+        })
     except Exception as e:
         return jsonify({
             'status': 'unhealthy',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
+            'error': str(e)
         }), 500
-    finally:
-        if 'conn' in locals():
-            connection_pool.putconn(conn)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
