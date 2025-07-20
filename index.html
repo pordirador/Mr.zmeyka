@@ -772,15 +772,29 @@
             }
             
             try {
+                // Обновляем имя в профиле
                 await db.ref(`users/${currentUser.id}`).update({
                     display_name: newName,
                     last_login: firebase.database.ServerValue.TIMESTAMP
                 });
                 
+                // Обновляем имя во ВСЕХ существующих рекордах этого пользователя
+                const scoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
+                const snapshot = await scoresRef.once('value');
+                
+                if (snapshot.exists()) {
+                    const updates = {};
+                    snapshot.forEach(child => {
+                        updates[`scores/${child.key}/display_name`] = newName;
+                    });
+                    await db.ref().update(updates);
+                }
+                
                 currentUser.display_name = newName;
                 updateProfileButton();
                 profileModal.style.display = 'none';
-                showToast('Профиль обновлен!');
+                showToast('Профиль и все рекорды обновлены!');
+                loadLeaderboard(topPlayersList, 5); // Обновляем таблицу лидеров
             } catch (error) {
                 console.error('Ошибка обновления профиля:', error);
                 showToast('Ошибка обновления профиля');
@@ -791,15 +805,47 @@
             if (!currentUser.id || currentUser.id.startsWith('local_') || score === 0) return;
             
             try {
-                const newScore = {
-                    user_id: currentUser.id,
-                    display_name: currentUser.display_name,
-                    score: score,
-                    date: firebase.database.ServerValue.TIMESTAMP
-                };
+                // Проверяем существующий рекорд пользователя
+                const userScoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
+                const snapshot = await userScoresRef.once('value');
                 
-                await db.ref('scores').push(newScore);
-                showToast(`Рекорд сохранен: ${score} очков!`);
+                let shouldSave = true;
+                let existingScoreValue = 0;
+                
+                if (snapshot.exists()) {
+                    let existingScoreKey = null;
+                    
+                    // Находим максимальный рекорд пользователя
+                    snapshot.forEach(child => {
+                        if (child.val().score > existingScoreValue) {
+                            existingScoreValue = child.val().score;
+                            existingScoreKey = child.key;
+                        }
+                    });
+                    
+                    // Если новый рекорд лучше старого - удаляем старый
+                    if (score > existingScoreValue) {
+                        await db.ref(`scores/${existingScoreKey}`).remove();
+                    } else {
+                        shouldSave = false; // Не сохраняем, если рекорд не улучшен
+                    }
+                }
+                
+                if (shouldSave) {
+                    const newScore = {
+                        user_id: currentUser.id,
+                        display_name: currentUser.display_name,
+                        score: score,
+                        date: firebase.database.ServerValue.TIMESTAMP
+                    };
+                    
+                    await db.ref('scores').push(newScore);
+                    showToast(`Новый рекорд: ${score} очков!`);
+                } else {
+                    showToast(`Ваш лучший рекорд: ${existingScoreValue} очков`);
+                }
+                
+                loadLeaderboard(topPlayersList, 5); // Обновляем таблицу лидеров
             } catch (error) {
                 console.error('Ошибка сохранения результата:', error);
                 showToast('Не удалось сохранить результат');
@@ -811,7 +857,7 @@
                 // Показываем состояние загрузки
                 targetElement.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Загрузка...</li>';
                 
-                const scoresRef = db.ref('scores').orderByChild('score').limitToLast(limit || 100);
+                const scoresRef = db.ref('scores').orderByChild('score').limitToLast(100);
                 const snapshot = await scoresRef.once('value');
                 
                 if (!snapshot.exists()) {
@@ -819,21 +865,26 @@
                     return;
                 }
                 
-                // Преобразуем данные в массив и сортируем по убыванию
-                const scores = [];
-                snapshot.forEach(childSnapshot => {
-                    scores.push({
-                        id: childSnapshot.key,
-                        ...childSnapshot.val()
-                    });
+                // Собираем только лучшие результаты для каждого пользователя
+                const bestScores = {};
+                snapshot.forEach(child => {
+                    const scoreData = child.val();
+                    if (!bestScores[scoreData.user_id] || scoreData.score > bestScores[scoreData.user_id].score) {
+                        bestScores[scoreData.user_id] = {
+                            id: child.key,
+                            ...scoreData
+                        };
+                    }
                 });
                 
-                scores.sort((a, b) => b.score - a.score);
+                // Преобразуем в массив и сортируем по убыванию
+                const scoresArray = Object.values(bestScores);
+                scoresArray.sort((a, b) => b.score - a.score);
                 
                 // Очищаем и заполняем таблицу
                 targetElement.innerHTML = '';
                 
-                const itemsToShow = limit ? scores.slice(0, limit) : scores;
+                const itemsToShow = limit ? scoresArray.slice(0, limit) : scoresArray;
                 
                 if (itemsToShow.length === 0) {
                     targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
