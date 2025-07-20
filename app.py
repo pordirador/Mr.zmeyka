@@ -45,6 +45,12 @@ def create_firebase_user():
     """Создает анонимного пользователя в Firebase Auth"""
     try:
         user = auth.create_user()
+        # Создаем базовую запись в Realtime Database
+        get_user_ref(user.uid).set({
+            'display_name': f'Игрок_{str(uuid.uuid4())[:4]}',
+            'created_at': {'.sv': 'timestamp'},
+            'last_seen_at': {'.sv': 'timestamp'}
+        })
         return user.uid
     except Exception as e:
         logger.error(f"Ошибка создания пользователя Firebase: {str(e)}")
@@ -56,36 +62,85 @@ def init_session():
         user_id = request.cookies.get('user_id')
         
         if not user_id:
-            # Создаем нового пользователя в Firebase Auth
             user_id = create_firebase_user()
             if not user_id:
-                return jsonify({'error': 'Failed to create user'}), 500
+                return jsonify({'error': 'Не удалось создать пользователя'}), 500
                 
             logger.info(f"Новый пользователь: {user_id}")
             
-            # Создаем запись в Realtime Database
-            user_ref = get_user_ref(user_id)
-            user_ref.set({
-                'display_name': f'Игрок {str(uuid.uuid4())[:4]}',
-                'created_at': {'.sv': 'timestamp'},
-                'last_seen_at': {'.sv': 'timestamp'}
-            })
-            
             response = make_response(jsonify({
                 'user_id': user_id,
-                'display_name': user_ref.get().get('display_name', 'Игрок')
+                'display_name': get_user_ref(user_id).get().get('display_name', 'Игрок')
             }))
             
             response.set_cookie(
                 'user_id',
                 user_id,
-                max_age=31536000,
+                max_age=31536000,  # 1 год
                 httponly=True,
                 samesite='None',
                 secure=True,
                 path='/'
             )
             return response
+        
+        # Проверяем существование пользователя
+        try:
+            auth.get_user(user_id)
+        except auth.UserNotFoundError:
+            # Если пользователь не найден, создаем нового
+            user_id = create_firebase_user()
+            response = make_response(jsonify({
+                'user_id': user_id,
+                'display_name': get_user_ref(user_id).get().get('display_name', 'Игрок')
+            }))
+            response.set_cookie('user_id', user_id, max_age=31536000, httponly=True, samesite='None', secure=True, path='/')
+            return response
+        
+        # Обновляем время последнего посещения
+        get_user_ref(user_id).update({
+            'last_seen_at': {'.sv': 'timestamp'}
+        })
+        
+        user_data = get_user_ref(user_id).get()
+        
+        return jsonify({
+            'user_id': user_id,
+            'display_name': user_data.get('display_name', 'Игрок')
+        })
+            
+    except Exception as e:
+        logger.error(f"Ошибка инициализации: {str(e)}")
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/user', methods=['PUT'])
+def update_profile():
+    try:
+        user_id = request.cookies.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'Пользователь не аутентифицирован'}), 401
+            
+        data = request.get_json()
+        new_name = data.get('display_name', '').strip()
+        
+        if len(new_name) < 2:
+            return jsonify({'error': 'Имя должно содержать минимум 2 символа'}), 400
+        if len(new_name) > 20:
+            return jsonify({'error': 'Имя слишком длинное (макс. 20 символов)'}), 400
+        
+        # Обновляем имя в базе данных
+        get_user_ref(user_id).update({
+            'display_name': new_name
+        })
+        
+        return jsonify({
+            'user_id': user_id,
+            'display_name': new_name
+        })
+            
+    except Exception as e:
+        logger.error(f"Ошибка обновления профиля: {str(e)}")
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
         
         # Обновляем время последнего посещения
         get_user_ref(user_id).update({
