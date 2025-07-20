@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Змейка</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -341,6 +345,22 @@
     </div>
 
     <script>
+        // ========== ИНИЦИАЛИЗАЦИЯ FIREBASE ==========
+        const firebaseConfig = {
+            apiKey: "AIzaSyBfSUiSe_sWYTLEyA38DN2C7xtKL3uwV8E",
+            authDomain: "mr-zmeyka.firebaseapp.com",
+            databaseURL: "https://mr-zmeyka-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "mr-zmeyka",
+            storageBucket: "mr-zmeyka.firebasestorage.app",
+            messagingSenderId: "521576761425",
+            appId: "1:521576761425:web:8dc4125c3a1b5f0a285070"
+        };
+
+        // Инициализация Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
+
         // ========== ЭЛЕМЕНТЫ ИНТЕРФЕЙСА ==========
         const mainMenu = document.getElementById('main-menu');
         const playBtn = document.getElementById('play-btn');
@@ -374,7 +394,6 @@
         const closeHowToPlayBtn = document.getElementById('close-how-to-play');
         
         // ========== НАСТРОЙКИ ИГРЫ ==========
-        const API_URL = 'https://mr-zmeyka.onrender.com';
         const gridSize = 20;
         let snake = [];
         let food = {};
@@ -385,7 +404,7 @@
         let gameActive = false;
         let refreshInterval;
         
-        // Система пользователей
+        // Текущий пользователь
         let currentUser = null;
         
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
@@ -667,133 +686,140 @@
             }
         }, { passive: false });
         
-// ========== СИСТЕМА ПОЛЬЗОВАТЕЛЕЙ ==========
-async function identifyUser() {
-    try {
-        const response = await fetch(`${API_URL}/api/init`, {
-            credentials: 'include'  // Добавлено для работы с куками
-        });
-        if (response.ok) {
-            currentUser = await response.json();
-            updateProfileButton();
-            showToast(`Добро пожаловать, ${currentUser.display_name || 'Игрок'}!`);
-        } else {
-            const error = await response.json();
-            showToast(error.error || 'Ошибка идентификации');
-        }
-    } catch (error) {
-        showToast('Ошибка соединения');
-        console.error('Ошибка идентификации:', error);
-    }
-}
-
-async function updateProfile() {
-    const newName = profileNameInput.value.trim();
-    if (!newName) {
-        showToast('Введите имя');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_URL}/api/user`, {
-            method: 'PUT',  // Исправлено с POST на PUT
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                display_name: newName
-            }),
-            credentials: 'include'  // Добавлено для работы с куками
-        });
-        
-        if (response.ok) {
-            currentUser = await response.json();
-            updateProfileButton();
-            profileModal.style.display = 'none';
-            showToast('Профиль обновлен!');
-        } else {
-            const error = await response.json();
-            showToast(error.error || 'Ошибка обновления профиля');
-        }
-    } catch (error) {
-        showToast('Ошибка соединения');
-        console.error('Ошибка обновления профиля:', error);
-    }
-}
-
-// ========== РАБОТА С API ==========
-async function saveScore() {
-    if (!currentUser || score === 0) return;
-    
-    try {
-        const response = await fetch(`${API_URL}/api/scores`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                score: score 
-            }),
-            credentials: 'include'  // Добавлено для работы с куками
-        });
-        
-        if (!response.ok) {
-            throw new Error('Ошибка сохранения результата');
-        }
-        
-        return await response.json();
-        
-    } catch (error) {
-        console.error('Ошибка сохранения:', error);
-        return null;
-    }
-}
-
-async function loadLeaderboard(targetElement = topPlayersList, limit = 5) {
-    try {
-        // Показываем состояние загрузки
-        targetElement.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Загрузка...</li>';
-        
-        const response = await fetch(`${API_URL}/api/scores`, {
-            credentials: 'include'  // Добавлено для работы с куками
-        });
-        
-        if (!response.ok) {
-            throw new Error('Ошибка загрузки таблицы лидеров');
-        }
-        
-        const scores = await response.json();
-        
-        // Очищаем и заполняем таблицу
-        targetElement.innerHTML = '';
-        
-        if (!scores || scores.length === 0) {
-            targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
-            return;
-        }
-        
-        const itemsToShow = limit ? scores.slice(0, limit) : scores;
-        
-        itemsToShow.forEach((item, index) => {
-            const li = document.createElement('li');
-            // Исправлено item.player на item.display_name
-            li.textContent = `${index + 1}. ${item.display_name}: ${item.score || 0}`;
-            if (item.date) {
-                const date = new Date(item.date);
-                const dateStr = date.toLocaleDateString();
-                const small = document.createElement('small');
-                small.textContent = ` (${dateStr})`;
-                small.style.opacity = '0.7';
-                li.appendChild(small);
+        // ========== РАБОТА С FIREBASE ==========
+        async function identifyUser() {
+            try {
+                // Анонимная аутентификация
+                const userCredential = await auth.signInAnonymously();
+                const user = userCredential.user;
+                
+                // Проверяем, есть ли пользователь в базе
+                const snapshot = await db.ref(`users/${user.uid}`).once('value');
+                
+                if (snapshot.exists()) {
+                    currentUser = {
+                        id: user.uid,
+                        display_name: snapshot.val().display_name || `Игрок ${Math.floor(Math.random() * 1000)}`
+                    };
+                } else {
+                    // Создаем нового пользователя
+                    const displayName = `Игрок ${Math.floor(Math.random() * 1000)}`;
+                    await db.ref(`users/${user.uid}`).set({
+                        display_name: displayName,
+                        created_at: firebase.database.ServerValue.TIMESTAMP
+                    });
+                    
+                    currentUser = {
+                        id: user.uid,
+                        display_name: displayName
+                    };
+                }
+                
+                updateProfileButton();
+                showToast(`Добро пожаловать, ${currentUser.display_name}!`);
+            } catch (error) {
+                console.error('Ошибка идентификации:', error);
+                showToast('Ошибка входа в игру');
+                // Создаем временного пользователя
+                currentUser = {
+                    id: 'temp_' + Date.now(),
+                    display_name: 'Гость'
+                };
             }
-            targetElement.appendChild(li);
-        });
-        
-    } catch (error) {
-        console.error('Ошибка загрузки рекордов:', error);
-        targetElement.innerHTML = '<li class="no-scores">Не удалось загрузить рекорды<br><small>Попробуйте позже</small></li>';
-    }
-}
+        }
+
+        async function updateProfile() {
+            const newName = profileNameInput.value.trim();
+            if (!newName) {
+                showToast('Введите имя');
+                return;
+            }
+            
+            try {
+                await db.ref(`users/${currentUser.id}`).update({
+                    display_name: newName
+                });
+                
+                currentUser.display_name = newName;
+                updateProfileButton();
+                profileModal.style.display = 'none';
+                showToast('Профиль обновлен!');
+            } catch (error) {
+                console.error('Ошибка обновления профиля:', error);
+                showToast('Ошибка обновления профиля');
+            }
+        }
+
+        async function saveScore() {
+            if (!currentUser || score === 0) return;
+            
+            try {
+                const newScoreRef = db.ref('scores').push();
+                await newScoreRef.set({
+                    user_id: currentUser.id,
+                    display_name: currentUser.display_name,
+                    score: score,
+                    date: firebase.database.ServerValue.TIMESTAMP
+                });
+                
+                showToast('Результат сохранен!');
+            } catch (error) {
+                console.error('Ошибка сохранения результата:', error);
+                showToast('Ошибка сохранения результата');
+            }
+        }
+
+        async function loadLeaderboard(targetElement = topPlayersList, limit = 5) {
+            try {
+                // Показываем состояние загрузки
+                targetElement.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Загрузка...</li>';
+                
+                const scoresRef = db.ref('scores').orderByChild('score').limitToLast(limit || 100);
+                const snapshot = await scoresRef.once('value');
+                
+                if (!snapshot.exists()) {
+                    targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
+                    return;
+                }
+                
+                // Преобразуем данные в массив и сортируем по убыванию
+                const scores = [];
+                snapshot.forEach(childSnapshot => {
+                    scores.push({
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    });
+                });
+                
+                scores.sort((a, b) => b.score - a.score);
+                
+                // Очищаем и заполняем таблицу
+                targetElement.innerHTML = '';
+                
+                const itemsToShow = limit ? scores.slice(0, limit) : scores;
+                
+                itemsToShow.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.textContent = `${index + 1}. ${item.display_name}: ${item.score || 0}`;
+                    
+                    if (item.date) {
+                        const date = new Date(item.date);
+                        const dateStr = date.toLocaleDateString();
+                        const small = document.createElement('small');
+                        small.textContent = ` (${dateStr})`;
+                        small.style.opacity = '0.7';
+                        li.appendChild(small);
+                    }
+                    
+                    targetElement.appendChild(li);
+                });
+                
+            } catch (error) {
+                console.error('Ошибка загрузки рекордов:', error);
+                targetElement.innerHTML = '<li class="no-scores">Не удалось загрузить рекорды<br><small>Попробуйте позже</small></li>';
+            }
+        }
+
         // Запуск игры при загрузке страницы
         window.addEventListener('load', init);
     </script>
