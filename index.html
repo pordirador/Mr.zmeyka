@@ -314,7 +314,7 @@
             <h2>Мой профиль</h2>
             <div id="profile-info">
                 <p><strong>Ваш ID:</strong> <span id="profile-id"></span></p>
-                <input type="text" id="profile-name-input" placeholder="Ваше игровое имя">
+                <input type="text" id="profile-name-input" placeholder="Ваше игровое имя" maxlength="20">
             </div>
             <button id="profile-save-btn" class="menu-btn">Сохранить</button>
         </div>
@@ -351,7 +351,7 @@
             authDomain: "mr-zmeyka.firebaseapp.com",
             databaseURL: "https://mr-zmeyka-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "mr-zmeyka",
-            storageBucket: "mr-zmeyka.firebasestorage.app",
+            storageBucket: "mr-zmeyka.appspot.com",
             messagingSenderId: "521576761425",
             appId: "1:521576761425:web:8dc4125c3a1b5f0a285070"
         };
@@ -360,6 +360,9 @@
         const app = firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         const auth = firebase.auth();
+
+        // Включим логирование для отладки
+        firebase.database.enableLogging(true);
 
         // ========== ЭЛЕМЕНТЫ ИНТЕРФЕЙСА ==========
         const mainMenu = document.getElementById('main-menu');
@@ -398,6 +401,7 @@
         let snake = [];
         let food = {};
         let direction = 'none';
+        let nextDirection = 'none';
         let score = 0;
         let gameSpeed = 150;
         let gameLoop;
@@ -405,10 +409,13 @@
         let refreshInterval;
         
         // Текущий пользователь
-        let currentUser = null;
+        let currentUser = {
+            id: null,
+            display_name: 'Гость'
+        };
         
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
-        async function init() {
+        function init() {
             // Настройка обработчиков событий
             playBtn.addEventListener('click', startGame);
             leaderboardBtn.addEventListener('click', showFullLeaderboard);
@@ -437,19 +444,30 @@
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
             
-            // Идентификация пользователя
-            await identifyUser();
+            // Проверка соединения с Firebase
+            db.ref('.info/connected').on('value', (snap) => {
+                if (snap.val() === true) {
+                    console.log("Connected to Firebase");
+                    identifyUser();
+                } else {
+                    console.log("Disconnected from Firebase");
+                    setupOfflineUser();
+                }
+            });
             
             // Загрузка таблицы лидеров
-            await loadLeaderboard(topPlayersList, 5);
+            loadLeaderboard(topPlayersList, 5);
         }
         
         // ========== ФУНКЦИИ ИНТЕРФЕЙСА ==========
         function showProfileModal() {
-            if (!currentUser) return;
+            if (!currentUser.id) {
+                showToast('Необходимо подключение к интернету');
+                return;
+            }
             
-            profileIdSpan.textContent = currentUser.id;
-            profileNameInput.value = currentUser.display_name || '';
+            profileIdSpan.textContent = currentUser.id.substring(0, 8) + '...';
+            profileNameInput.value = currentUser.display_name;
             profileModal.style.display = 'flex';
         }
         
@@ -475,12 +493,12 @@
             mainMenu.style.display = 'block';
             clearInterval(gameLoop);
             clearInterval(refreshInterval);
+            direction = 'none';
+            nextDirection = 'none';
         }
         
         function updateProfileButton() {
-            if (currentUser) {
-                profileBtn.textContent = currentUser.display_name || 'Профиль';
-            }
+            profileBtn.textContent = currentUser.display_name;
         }
         
         // ========== ИГРОВЫЕ ФУНКЦИИ ==========
@@ -544,6 +562,9 @@
         }
         
         function update() {
+            // Обновляем направление
+            direction = nextDirection;
+            
             if (direction === 'none') return;
             
             const head = { ...snake[0] };
@@ -602,7 +623,7 @@
             gameActive = false;
             
             // Сохранение результата
-            if (currentUser && score > 0) {
+            if (currentUser.id && !currentUser.id.startsWith('local_') && score > 0) {
                 await saveScore();
                 await loadLeaderboard(topPlayersList, 5);
             }
@@ -618,6 +639,7 @@
             scoreElement.textContent = score;
             gameSpeed = 150;
             direction = 'none';
+            nextDirection = 'none';
             gameActive = true;
             
             // Инициализация игровых элементов
@@ -631,6 +653,7 @@
             gameLoop = setInterval(gameStep, gameSpeed);
             
             // Автообновление таблицы лидеров каждые 30 секунд
+            if (refreshInterval) clearInterval(refreshInterval);
             refreshInterval = setInterval(() => loadLeaderboard(topPlayersList, 5), 30000);
         }
         
@@ -645,7 +668,7 @@
                 (newDirection === 'left' && direction !== 'right') ||
                 (newDirection === 'right' && direction !== 'left')
             ) {
-                direction = newDirection;
+                nextDirection = newDirection;
             }
         }
         
@@ -665,6 +688,7 @@
         const SWIPE_THRESHOLD = 30;
 
         canvas.addEventListener('touchstart', (e) => {
+            if (!gameActive) return;
             e.preventDefault();
             const touch = e.touches[0];
             touchStartX = touch.clientX;
@@ -672,6 +696,7 @@
         }, { passive: false });
 
         canvas.addEventListener('touchmove', (e) => {
+            if (!gameActive) return;
             e.preventDefault();
             const touch = e.touches[0];
             const diffX = touchStartX - touch.clientX;
@@ -694,19 +719,21 @@
                 const user = userCredential.user;
                 
                 // Проверяем, есть ли пользователь в базе
-                const snapshot = await db.ref(`users/${user.uid}`).once('value');
+                const userRef = db.ref(`users/${user.uid}`);
+                const snapshot = await userRef.once('value');
                 
                 if (snapshot.exists()) {
                     currentUser = {
                         id: user.uid,
-                        display_name: snapshot.val().display_name || `Игрок ${Math.floor(Math.random() * 1000)}`
+                        display_name: snapshot.val().display_name || `Игрок ${Math.floor(1000 + Math.random() * 9000)}`
                     };
                 } else {
                     // Создаем нового пользователя
-                    const displayName = `Игрок ${Math.floor(Math.random() * 1000)}`;
-                    await db.ref(`users/${user.uid}`).set({
+                    const displayName = `Игрок ${Math.floor(1000 + Math.random() * 9000)}`;
+                    await userRef.set({
                         display_name: displayName,
-                        created_at: firebase.database.ServerValue.TIMESTAMP
+                        created_at: firebase.database.ServerValue.TIMESTAMP,
+                        last_login: firebase.database.ServerValue.TIMESTAMP
                     });
                     
                     currentUser = {
@@ -719,13 +746,17 @@
                 showToast(`Добро пожаловать, ${currentUser.display_name}!`);
             } catch (error) {
                 console.error('Ошибка идентификации:', error);
-                showToast('Ошибка входа в игру');
-                // Создаем временного пользователя
-                currentUser = {
-                    id: 'temp_' + Date.now(),
-                    display_name: 'Гость'
-                };
+                setupOfflineUser();
             }
+        }
+
+        function setupOfflineUser() {
+            currentUser = {
+                id: 'local_' + Date.now(),
+                display_name: 'Гость'
+            };
+            updateProfileButton();
+            showToast('Оффлайн-режим. Результаты не сохранятся.');
         }
 
         async function updateProfile() {
@@ -735,9 +766,15 @@
                 return;
             }
             
+            if (newName.length < 2 || newName.length > 20) {
+                showToast('Имя должно быть от 2 до 20 символов');
+                return;
+            }
+            
             try {
                 await db.ref(`users/${currentUser.id}`).update({
-                    display_name: newName
+                    display_name: newName,
+                    last_login: firebase.database.ServerValue.TIMESTAMP
                 });
                 
                 currentUser.display_name = newName;
@@ -751,21 +788,21 @@
         }
 
         async function saveScore() {
-            if (!currentUser || score === 0) return;
+            if (!currentUser.id || currentUser.id.startsWith('local_') || score === 0) return;
             
             try {
-                const newScoreRef = db.ref('scores').push();
-                await newScoreRef.set({
+                const newScore = {
                     user_id: currentUser.id,
                     display_name: currentUser.display_name,
                     score: score,
                     date: firebase.database.ServerValue.TIMESTAMP
-                });
+                };
                 
-                showToast('Результат сохранен!');
+                await db.ref('scores').push(newScore);
+                showToast(`Рекорд сохранен: ${score} очков!`);
             } catch (error) {
                 console.error('Ошибка сохранения результата:', error);
-                showToast('Ошибка сохранения результата');
+                showToast('Не удалось сохранить результат');
             }
         }
 
@@ -798,6 +835,11 @@
                 
                 const itemsToShow = limit ? scores.slice(0, limit) : scores;
                 
+                if (itemsToShow.length === 0) {
+                    targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
+                    return;
+                }
+                
                 itemsToShow.forEach((item, index) => {
                     const li = document.createElement('li');
                     li.textContent = `${index + 1}. ${item.display_name}: ${item.score || 0}`;
@@ -809,6 +851,12 @@
                         small.textContent = ` (${dateStr})`;
                         small.style.opacity = '0.7';
                         li.appendChild(small);
+                    }
+                    
+                    // Подсвечиваем текущего пользователя
+                    if (item.user_id === currentUser.id) {
+                        li.style.fontWeight = 'bold';
+                        li.style.color = '#4CAF50';
                     }
                     
                     targetElement.appendChild(li);
