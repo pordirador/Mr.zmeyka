@@ -7,17 +7,53 @@ import logging
 from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, db, auth
+import json
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 
+# Безопасная инициализация Firebase
+def initialize_firebase():
+    try:
+        # Вариант 1: Используем переменные окружения
+        if all(k in os.environ for k in ['FIREBASE_TYPE', 'FIREBASE_PROJECT_ID', 
+                                       'FIREBASE_PRIVATE_KEY', 'FIREBASE_CLIENT_EMAIL']):
+            
+            firebase_credentials = {
+                "type": os.environ['FIREBASE_TYPE'],
+                "project_id": os.environ['FIREBASE_PROJECT_ID'],
+                "private_key": os.environ['FIREBASE_PRIVATE_KEY'].replace('\\n', '\n'),
+                "client_email": os.environ['FIREBASE_CLIENT_EMAIL'],
+                "token_uri": os.environ.get('FIREBASE_TOKEN_URI', "https://oauth2.googleapis.com/token")
+            }
+            
+            cred = credentials.Certificate(firebase_credentials)
+            return firebase_admin.initialize_app(cred, {
+                'databaseURL': os.getenv('FIREBASE_DB_URL')
+            })
+        
+        # Вариант 2: Используем файл из переменной окружения (для Docker)
+        elif 'FIREBASE_CREDENTIALS_JSON' in os.environ:
+            cred = credentials.Certificate(json.loads(os.environ['FIREBASE_CREDENTIALS_JSON']))
+            return firebase_admin.initialize_app(cred, {
+                'databaseURL': os.getenv('FIREBASE_DB_URL')
+            })
+        
+        else:
+            raise RuntimeError("Не настроены учетные данные Firebase")
+    
+    except Exception as e:
+        logging.error(f"Ошибка инициализации Firebase: {str(e)}")
+        raise
+
 # Инициализация Firebase
-cred = credentials.Certificate("firebase-service-account.json")  # Ваш сервисный аккаунт
-firebase_admin.initialize_app(cred, {
-    'databaseURL': os.getenv('FIREBASE_DB_URL')
-})
+try:
+    firebase_app = initialize_firebase()
+except Exception as e:
+    logging.error(f"Не удалось инициализировать Firebase: {str(e)}")
+    firebase_app = None
 
 # Настройка логгирования
 logging.basicConfig(level=logging.INFO)
@@ -34,80 +70,69 @@ CORS(app, resources={
     }
 })
 
-# Firebase Helpers
 def get_user_ref(user_id):
+    if not firebase_app:
+        raise RuntimeError("Firebase не инициализирован")
     return db.reference(f'users/{user_id}')
 
 def get_scores_ref():
+    if not firebase_app:
+        raise RuntimeError("Firebase не инициализирован")
     return db.reference('scores')
-
-def create_firebase_user():
-    """Создает анонимного пользователя в Firebase Auth"""
-    try:
-        user = auth.create_user()
-        # Создаем базовую запись в Realtime Database
-        get_user_ref(user.uid).set({
-            'display_name': f'Игрок_{str(uuid.uuid4())[:4]}',
-            'created_at': {'.sv': 'timestamp'},
-            'last_seen_at': {'.sv': 'timestamp'}
-        })
-        return user.uid
-    except Exception as e:
-        logger.error(f"Ошибка создания пользователя Firebase: {str(e)}")
-        return None
 
 @app.route('/api/init', methods=['GET'])
 def init_session():
     try:
+        if not firebase_app:
+            return jsonify({'error': 'Сервис временно недоступен'}), 503
+            
         user_id = request.cookies.get('user_id')
         
         if not user_id:
-            user_id = create_firebase_user()
-            if not user_id:
-                return jsonify({'error': 'Не удалось создать пользователя'}), 500
+            try:
+                user = auth.create_user()
+                user_id = user.uid
                 
-            logger.info(f"Новый пользователь: {user_id}")
-            
-            response = make_response(jsonify({
-                'user_id': user_id,
-                'display_name': get_user_ref(user_id).get().get('display_name', 'Игрок')
-            }))
-            
-            response.set_cookie(
-                'user_id',
-                user_id,
-                max_age=31536000,  # 1 год
-                httponly=True,
-                samesite='None',
-                secure=True,
-                path='/'
-            )
-            return response
+                get_user_ref(user_id).set({
+                    'display_name': f'Игрок_{str(uuid.uuid4())[:4]}',
+                    'created_at': {'.sv': 'timestamp'},
+                    'last_seen_at': {'.sv': 'timestamp'}
+                })
+                
+                response = make_response(jsonify({
+                    'user_id': user_id,
+                    'display_name': f'Игрок_{str(uuid.uuid4())[:4]}'
+                }))
+                
+                response.set_cookie(
+                    'user_id',
+                    user_id,
+                    max_age=31536000,
+                    httponly=True,
+                    samesite='None',
+                    secure=True,
+                    path='/'
+                )
+                return response
+                
+            except Exception as e:
+                logger.error(f"Ошибка создания пользователя: {str(e)}")
+                return jsonify({'error': 'Не удалось создать пользователя'}), 500
         
-        # Проверяем существование пользователя
         try:
             auth.get_user(user_id)
-        except auth.UserNotFoundError:
-            # Если пользователь не найден, создаем нового
-            user_id = create_firebase_user()
-            response = make_response(jsonify({
+            get_user_ref(user_id).update({
+                'last_seen_at': {'.sv': 'timestamp'}
+            })
+            
+            user_data = get_user_ref(user_id).get()
+            return jsonify({
                 'user_id': user_id,
-                'display_name': get_user_ref(user_id).get().get('display_name', 'Игрок')
-            }))
-            response.set_cookie('user_id', user_id, max_age=31536000, httponly=True, samesite='None', secure=True, path='/')
-            return response
-        
-        # Обновляем время последнего посещения
-        get_user_ref(user_id).update({
-            'last_seen_at': {'.sv': 'timestamp'}
-        })
-        
-        user_data = get_user_ref(user_id).get()
-        
-        return jsonify({
-            'user_id': user_id,
-            'display_name': user_data.get('display_name', 'Игрок')
-        })
+                'display_name': user_data.get('display_name', f'Игрок_{str(uuid.uuid4())[:4]}')
+            })
+            
+        except auth.UserNotFoundError:
+            return jsonify({'error': 'Сессия устарела'}), 401
             
     except Exception as e:
         logger.error(f"Ошибка инициализации: {str(e)}")
@@ -116,9 +141,12 @@ def init_session():
 @app.route('/api/user', methods=['PUT'])
 def update_profile():
     try:
+        if not firebase_app:
+            return jsonify({'error': 'Сервис временно недоступен'}), 503
+            
         user_id = request.cookies.get('user_id')
         if not user_id:
-            return jsonify({'error': 'Пользователь не аутентифицирован'}), 401
+            return jsonify({'error': 'Требуется авторизация'}), 401
             
         data = request.get_json()
         new_name = data.get('display_name', '').strip()
@@ -126,136 +154,93 @@ def update_profile():
         if len(new_name) < 2:
             return jsonify({'error': 'Имя должно содержать минимум 2 символа'}), 400
         if len(new_name) > 20:
-            return jsonify({'error': 'Имя слишком длинное (макс. 20 символов)'}), 400
+            return jsonify({'error': 'Имя должно быть не длиннее 20 символов'}), 400
         
-        # Обновляем имя в базе данных
         get_user_ref(user_id).update({
-            'display_name': new_name
-        })
-        
-        return jsonify({
-            'user_id': user_id,
-            'display_name': new_name
-        })
-            
-    except Exception as e:
-        logger.error(f"Ошибка обновления профиля: {str(e)}")
-        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
-        
-        # Обновляем время последнего посещения
-        get_user_ref(user_id).update({
+            'display_name': new_name,
             'last_seen_at': {'.sv': 'timestamp'}
         })
         
-        user_data = get_user_ref(user_id).get()
-        
         return jsonify({
             'user_id': user_id,
-            'display_name': user_data.get('display_name', 'Игрок')
+            'display_name': new_name
         })
-            
-    except Exception as e:
-        logger.error(f"Ошибка инициализации: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@app.route('/api/user', methods=['GET', 'PUT'])
-def user_profile():
-    try:
-        user_id = request.cookies.get('user_id')
-        if not user_id:
-            return jsonify({'error': 'User not authenticated'}), 401
-            
-        user_ref = get_user_ref(user_id)
         
-        if request.method == 'GET':
-            user_data = user_ref.get()
-            if not user_data:
-                return jsonify({'error': 'User not found'}), 404
-                
-            return jsonify({
-                'user_id': user_id,
-                'display_name': user_data.get('display_name', 'Игрок')
-            })
-            
-        elif request.method == 'PUT':
-            data = request.get_json()
-            new_name = data.get('display_name', '').strip()
-            
-            if len(new_name) < 2:
-                return jsonify({'error': 'Имя слишком короткое'}), 400
-            if len(new_name) > 20:
-                return jsonify({'error': 'Имя слишком длинное'}), 400
-            
-            user_ref.update({
-                'display_name': new_name
-            })
-            
-            return jsonify({
-                'user_id': user_id,
-                'display_name': new_name
-            })
-                
     except Exception as e:
-        logger.error(f"Ошибка работы с профилем: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Ошибка обновления профиля: {str(e)}")
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
 
-@app.route('/api/scores', methods=['GET', 'POST'])
-def handle_scores():
+@app.route('/api/scores', methods=['POST'])
+def save_score():
     try:
+        if not firebase_app:
+            return jsonify({'error': 'Сервис временно недоступен'}), 503
+            
         user_id = request.cookies.get('user_id')
         if not user_id:
-            return jsonify({'error': 'User not authenticated'}), 401
+            return jsonify({'error': 'Требуется авторизация'}), 401
             
-        if request.method == 'POST':
-            data = request.get_json()
-            score = data.get('score')
+        data = request.get_json()
+        score = data.get('score')
+        
+        if not isinstance(score, int) or score < 0:
+            return jsonify({'error': 'Некорректный счет'}), 400
             
-            if not isinstance(score, int) or score < 0:
-                return jsonify({'error': 'Некорректный счет'}), 400
+        user_data = get_user_ref(user_id).get()
+        if not user_data:
+            return jsonify({'error': 'Пользователь не найден'}), 404
             
-            # Получаем данные пользователя
-            user_data = get_user_ref(user_id).get()
-            if not user_data:
-                return jsonify({'error': 'User not found'}), 404
-            
-            # Сохраняем результат
-            new_score_ref = get_scores_ref().push()
-            new_score_ref.set({
-                'user_id': user_id,
-                'display_name': user_data.get('display_name', 'Игрок'),
-                'score': score,
-                'date': {'.sv': 'timestamp'}
-            })
-            
-            return jsonify({'status': 'success'})
-            
-        elif request.method == 'GET':
-            # Получаем топ-100 результатов
-            scores = get_scores_ref().order_by_child('score').limit_to_last(100).get()
-            if not scores:
-                return jsonify([])
-                
-            # Преобразуем в список и сортируем по убыванию
-            scores_list = [{'id': k, **v} for k, v in scores.items()]
-            sorted_scores = sorted(scores_list, key=lambda x: -x['score'])
-            
-            # Форматируем дату
-            for score in sorted_scores:
-                if 'date' in score:
-                    score['date'] = time.strftime('%Y-%m-%d %H:%M', 
-                                                time.localtime(score['date']/1000))
-            
-            return jsonify(sorted_scores[:50])  # Возвращаем топ-50
-                
+        get_scores_ref().push().set({
+            'user_id': user_id,
+            'display_name': user_data.get('display_name', 'Игрок'),
+            'score': score,
+            'date': {'.sv': 'timestamp'}
+        })
+        
+        return jsonify({'status': 'success'})
+        
     except Exception as e:
-        logger.error(f"Ошибка работы с рекордами: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Ошибка сохранения счета: {str(e)}")
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/scores', methods=['GET'])
+def get_leaderboard():
+    try:
+        if not firebase_app:
+            return jsonify({'error': 'Сервис временно недоступен'}), 503
+            
+        limit = min(int(request.args.get('limit', 10)), 100)
+        
+        scores = get_scores_ref()\
+            .order_by_child('score')\
+            .limit_to_last(limit)\
+            .get()
+            
+        if not scores:
+            return jsonify([])
+            
+        sorted_scores = sorted(
+            [{'id': k, **v} for k, v in scores.items()],
+            key=lambda x: -x['score']
+        )
+        
+        return jsonify(sorted_scores)
+        
+    except Exception as e:
+        logger.error(f"Ошибка получения таблицы лидеров: {str(e)}")
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
     try:
-        # Проверка соединения с Firebase
-        db.reference('healthcheck').set({'status': 'ok', 'timestamp': {'.sv': 'timestamp'}})
+        if not firebase_app:
+            return jsonify({'status': 'unhealthy', 'error': 'Firebase not initialized'}), 503
+            
+        db.reference('healthcheck').set({
+            'status': 'ok',
+            'timestamp': {'.sv': 'timestamp'}
+        })
+        
         return jsonify({
             'status': 'healthy',
             'database': 'connected',
@@ -270,4 +255,4 @@ def health_check():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port, debug=os.environ.get('DEBUG', False))
+    app.run(host='0.0.0.0', port=port, debug=os.environ.get('DEBUG', 'False').lower() == 'true')
