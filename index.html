@@ -407,6 +407,40 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
 #profile-content::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+        /* Стили для модального окна профиля */
+.modal-content {
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+    width: 90%;
+    max-width: 500px;
+}
+
+.close-modal-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #777;
+    padding: 5px 10px;
+}
+
+.close-modal-btn:hover {
+    color: #333;
+}
+
+/* Стили для аватаров */
+.avatar-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    font-size: 1.2rem;
+}
     </style>
 </head>
 <body>
@@ -509,7 +543,13 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
             <button id="close-how-to-play" class="menu-btn">Понятно</button>
         </div>
     </div>
-    
+    <div id="profile-modal" class="modal">
+    <div class="modal-content">
+        <button class="close-modal-btn">&times;</button>
+        <h2>Мой профиль</h2>
+        <!-- остальное содержимое модального окна -->
+    </div>
+</div>
     <!-- Модальное окно таблицы рекордов -->
     <div id="leaderboard-modal" class="modal">
         <div class="modal-content">
@@ -684,6 +724,11 @@ function setupProfileOptions() {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.style.display = 'none';
+                document.querySelectorAll('.close-modal-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.closest('.modal').style.display = 'none';
+        });
+    });
             }
         });
     });
@@ -735,18 +780,17 @@ function applyProfileSettings() {
         return;
     }
     
-    profileIdSpan.textContent = currentUser.id.substring(0, 8) + '...';
-    profileNameInput.value = currentUser.display_name;
-    
     // Сбрасываем выделение всех элементов
     document.querySelectorAll('.avatar-option, .background-option, .snake-skin-option')
         .forEach(el => el.classList.remove('selected'));
     
     // Выделяем текущие выбранные элементы
-    document.querySelector(`.avatar-option[data-avatar="${userSettings.avatar}"]`).classList.add('selected');
-    document.querySelector(`.background-option[data-bg="${userSettings.background}"]`).classList.add('selected');
-    document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"]`).classList.add('selected');
+    document.querySelector(`.avatar-option[data-avatar="${userSettings.avatar}"]`)?.classList.add('selected');
+    document.querySelector(`.background-option[data-bg="${userSettings.background}"]`)?.classList.add('selected');
+    document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"]`)?.classList.add('selected');
     
+    profileIdSpan.textContent = currentUser.id.substring(0, 8) + '...';
+    profileNameInput.value = currentUser.display_name;
     profileModal.style.display = 'flex';
 }
         
@@ -845,7 +889,7 @@ function applyProfileSettings() {
         ctx.fillRect(segment.x, segment.y, gridSize - 1, gridSize - 1);
     });
     
-    // Отрисовка еды (без изменений)
+    // Отрисовка еды
     ctx.fillStyle = '#FF5722';
     ctx.beginPath();
     ctx.arc(food.x + gridSize/2, food.y + gridSize/2, gridSize/2 - 1, 0, Math.PI * 2);
