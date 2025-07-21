@@ -278,6 +278,95 @@
                 font-size: 0.8em;
             }
         }
+        /* Стили профиля */
+#profile-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.profile-section {
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.profile-section h3 {
+    margin-bottom: 10px;
+    color: #4CAF50;
+}
+
+.avatar-grid, .background-grid, .snake-skin-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.avatar-option, .background-option, .snake-skin-option {
+    aspect-ratio: 1/1;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    background-size: cover;
+    background-position: center;
+}
+
+.avatar-option:hover, .background-option:hover, .snake-skin-option:hover {
+    transform: scale(1.05);
+}
+
+.avatar-option.selected, .background-option.selected, .snake-skin-option.selected {
+    border-color: #4CAF50;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+/* Цвета для скинов змейки */
+.snake-color-1 { background-color: #4CAF50; } /* Зеленый */
+.snake-color-2 { background-color: #2196F3; } /* Синий */
+.snake-color-3 { background-color: #9C27B0; } /* Фиолетовый */
+.snake-color-4 { background-color: #FF9800; } /* Оранжевый */
+.snake-color-5 { background-color: #E91E63; } /* Розовый */
+.snake-color-6 { background-color: #00BCD4; } /* Бирюзовый */
+
+/* Фоны для профиля */
+.profile-bg-1 { background: linear-gradient(135deg, #4CAF50, #8BC34A); }
+.profile-bg-2 { background: linear-gradient(135deg, #2196F3, #03A9F4); }
+.profile-bg-3 { background: linear-gradient(135deg, #9C27B0, #E91E63); }
+.profile-bg-4 { background: linear-gradient(135deg, #FF9800, #FFC107); }
+.profile-bg-5 { background: linear-gradient(135deg, #607D8B, #9E9E9E); }
+.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
+
+/* Улучшенная таблица рекордов */
+.leaderboard-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin: 5px 0;
+    background: #f9f9f9;
+    border-radius: 4px;
+}
+
+.leaderboard-entry .player-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.leaderboard-entry .player-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-size: cover;
+}
+
+.leaderboard-entry.current-user {
+    background: #e8f5e9;
+    font-weight: bold;
+}
     </style>
 </head>
 <body>
@@ -304,17 +393,56 @@
         </div>
     </div>
     
-    <!-- Модальное окно профиля -->
     <div id="profile-modal" class="modal">
-        <div class="modal-content">
-            <h2>Мой профиль</h2>
-            <div id="profile-info">
+    <div class="modal-content">
+        <h2>Мой профиль</h2>
+        <div id="profile-content">
+            <div class="profile-section">
+                <h3>Основная информация</h3>
                 <p><strong>Ваш ID:</strong> <span id="profile-id"></span></p>
                 <input type="text" id="profile-name-input" placeholder="Ваше игровое имя" maxlength="20">
             </div>
-            <button id="profile-save-btn" class="menu-btn">Сохранить</button>
+            
+            <div class="profile-section">
+                <h3>Аватар профиля</h3>
+                <div class="avatar-grid">
+                    <div class="avatar-option selected" data-avatar="1">1</div>
+                    <div class="avatar-option" data-avatar="2">2</div>
+                    <div class="avatar-option" data-avatar="3">3</div>
+                    <div class="avatar-option" data-avatar="4">4</div>
+                    <div class="avatar-option" data-avatar="5">5</div>
+                    <div class="avatar-option" data-avatar="6">6</div>
+                </div>
+            </div>
+            
+            <div class="profile-section">
+                <h3>Фон профиля</h3>
+                <div class="background-grid">
+                    <div class="background-option profile-bg-1 selected" data-bg="1"></div>
+                    <div class="background-option profile-bg-2" data-bg="2"></div>
+                    <div class="background-option profile-bg-3" data-bg="3"></div>
+                    <div class="background-option profile-bg-4" data-bg="4"></div>
+                    <div class="background-option profile-bg-5" data-bg="5"></div>
+                    <div class="background-option profile-bg-6" data-bg="6"></div>
+                </div>
+            </div>
+            
+            <div class="profile-section">
+                <h3>Внешность змейки</h3>
+                <div class="snake-skin-grid">
+                    <div class="snake-skin-option snake-color-1 selected" data-skin="1"></div>
+                    <div class="snake-skin-option snake-color-2" data-skin="2"></div>
+                    <div class="snake-skin-option snake-color-3" data-skin="3"></div>
+                    <div class="snake-skin-option snake-color-4" data-skin="4"></div>
+                    <div class="snake-skin-option snake-color-5" data-skin="5"></div>
+                    <div class="snake-skin-option snake-color-6" data-skin="6"></div>
+                </div>
+            </div>
+            
+            <button id="profile-save-btn" class="menu-btn">Сохранить изменения</button>
         </div>
     </div>
+</div>
     
     <!-- Модальное окно "Как играть" -->
     <div id="how-to-play-modal" class="modal">
@@ -409,9 +537,83 @@
             id: null,
             display_name: 'Гость'
         };
-        
+        // Настройки профиля
+let userSettings = {
+    avatar: 1,
+    background: 1,
+    snakeSkin: 1
+};
+
+// Загрузка настроек профиля
+async function loadProfileSettings() {
+    if (!currentUser.id || currentUser.id.startsWith('local_')) return;
+    
+    try {
+        const snapshot = await db.ref(`userSettings/${currentUser.id}`).once('value');
+        if (snapshot.exists()) {
+            userSettings = snapshot.val();
+            applyProfileSettings();
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки настроек:', error);
+    }
+}
+
+// Применение настроек профиля
+function applyProfileSettings() {
+    // Выбираем активные элементы в профиле
+    document.querySelector(`.avatar-option[data-avatar="${userSettings.avatar}"]`)?.classList.add('selected');
+    document.querySelector(`.background-option[data-bg="${userSettings.background}"]`)?.classList.add('selected');
+    document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"]`)?.classList.add('selected');
+    
+    // Можно добавить применение скина змейки в игре
+}
+
+// Сохранение настроек профиля
+async function saveProfileSettings() {
+    if (!currentUser.id || currentUser.id.startsWith('local_')) return;
+    
+    try {
+        await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
+    } catch (error) {
+        console.error('Ошибка сохранения настроек:', error);
+    }
+}
+
+// Обработчики выбора настроек
+function setupProfileOptions() {
+    // Аватары
+    document.querySelectorAll('.avatar-option').forEach(option => {
+        option.addEventListener('click', () => {
+            document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
+            option.classList.add('selected');
+            userSettings.avatar = parseInt(option.dataset.avatar);
+        });
+    });
+    
+    // Фоны
+    document.querySelectorAll('.background-option').forEach(option => {
+        option.addEventListener('click', () => {
+            document.querySelectorAll('.background-option').forEach(el => el.classList.remove('selected'));
+            option.classList.add('selected');
+            userSettings.background = parseInt(option.dataset.bg);
+        });
+    });
+    
+    // Скины змейки
+    document.querySelectorAll('.snake-skin-option').forEach(option => {
+        option.addEventListener('click', () => {
+            document.querySelectorAll('.snake-skin-option').forEach(el => el.classList.remove('selected'));
+            option.classList.add('selected');
+            userSettings.snakeSkin = parseInt(option.dataset.skin);
+        });
+    });
+}
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
-        function init() {
+        function init()
+            // Инициализация настроек профиля
+loadProfileSettings();
+setupProfileOptions();{
             // Настройка обработчиков событий
             playBtn.addEventListener('click', startGame);
             leaderboardBtn.addEventListener('click', showFullLeaderboard);
@@ -537,22 +739,34 @@
         }
         
         function draw() {
-            // Очистка canvas
-            ctx.fillStyle = '#222';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Отрисовка змейки
-            snake.forEach((segment, index) => {
-                ctx.fillStyle = index === 0 ? '#4CAF50' : '#8BC34A';
-                ctx.fillRect(segment.x, segment.y, gridSize - 1, gridSize - 1);
-            });
-            
-            // Отрисовка еды
-            ctx.fillStyle = '#FF5722';
-            ctx.beginPath();
-            ctx.arc(food.x + gridSize/2, food.y + gridSize/2, gridSize/2 - 1, 0, Math.PI * 2);
-            ctx.fill();
+    // Очистка canvas
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Отрисовка змейки с учетом скина
+    snake.forEach((segment, index) => {
+        // Получаем цвет из настроек
+        let color;
+        switch(userSettings.snakeSkin) {
+            case 1: color = index === 0 ? '#4CAF50' : '#8BC34A'; break;
+            case 2: color = index === 0 ? '#2196F3' : '#03A9F4'; break;
+            case 3: color = index === 0 ? '#9C27B0' : '#E91E63'; break;
+            case 4: color = index === 0 ? '#FF9800' : '#FFC107'; break;
+            case 5: color = index === 0 ? '#E91E63' : '#F06292'; break;
+            case 6: color = index === 0 ? '#00BCD4' : '#80DEEA'; break;
+            default: color = index === 0 ? '#4CAF50' : '#8BC34A';
         }
+        
+        ctx.fillStyle = color;
+        ctx.fillRect(segment.x, segment.y, gridSize - 1, gridSize - 1);
+    });
+    
+    // Отрисовка еды (без изменений)
+    ctx.fillStyle = '#FF5722';
+    ctx.beginPath();
+    ctx.arc(food.x + gridSize/2, food.y + gridSize/2, gridSize/2 - 1, 0, Math.PI * 2);
+    ctx.fill();
+}
         
         function update() {
             // Обновляем направление
@@ -623,32 +837,35 @@
         }
         
         function startGame() {
-            // Настройка игры
-            mainMenu.style.display = 'none';
-            gameContainer.style.display = 'block';
-            gameOverElement.style.display = 'none';
-            
-            score = 0;
-            scoreElement.textContent = score;
-            gameSpeed = 150;
-            direction = 'none';
-            nextDirection = 'none';
-            gameActive = true;
-            
-            // Инициализация игровых элементов
-            resizeCanvas();
-            initSnake();
-            generateFood();
-            draw();
-            
-            // Запуск игрового цикла
-            if (gameLoop) clearInterval(gameLoop);
-            gameLoop = setInterval(gameStep, gameSpeed);
-            
-            // Автообновление таблицы лидеров каждые 30 секунд
-            if (refreshInterval) clearInterval(refreshInterval);
-            refreshInterval = setInterval(() => loadLeaderboard(topPlayersList, 5), 30000);
-        }
+    // Настройка игры
+    mainMenu.style.display = 'none';
+    gameContainer.style.display = 'block';
+    gameOverElement.style.display = 'none';
+    
+    // Скрываем таблицу рекордов во время игры
+    document.getElementById('leaderboard').style.display = 'none';
+    
+    score = 0;
+    scoreElement.textContent = score;
+    gameSpeed = 150;
+    direction = 'none';
+    nextDirection = 'none';
+    gameActive = true;
+    
+    // Инициализация игровых элементов
+    resizeCanvas();
+    initSnake();
+    generateFood();
+    draw();
+    
+    // Запуск игрового цикла
+    if (gameLoop) clearInterval(gameLoop);
+    gameLoop = setInterval(gameStep, gameSpeed);
+    
+    // Автообновление таблицы лидеров каждые 30 секунд
+    if (refreshInterval) clearInterval(refreshInterval);
+    refreshInterval = setInterval(() => loadLeaderboard(topPlayersList, 5), 30000);
+}
         
         // ========== УПРАВЛЕНИЕ ==========
         function handleInput(newDirection) {
@@ -753,164 +970,182 @@
         }
 
         async function updateProfile() {
-            const newName = profileNameInput.value.trim();
-            if (!newName) {
-                showToast('Введите имя');
-                return;
-            }
-            
-            if (newName.length < 2 || newName.length > 20) {
-                showToast('Имя должно быть от 2 до 20 символов');
-                return;
-            }
-            
-            try {
-                // Обновляем имя в профиле
-                await db.ref(`users/${currentUser.id}`).update({
-                    display_name: newName,
-                    last_login: firebase.database.ServerValue.TIMESTAMP
-                });
-                
-                // Обновляем имя во ВСЕХ существующих рекордах этого пользователя
-                const scoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
-                const snapshot = await scoresRef.once('value');
-                
-                if (snapshot.exists()) {
-                    const updates = {};
-                    snapshot.forEach(child => {
-                        updates[`scores/${child.key}/display_name`] = newName;
-                    });
-                    await db.ref().update(updates);
-                }
-                
-                currentUser.display_name = newName;
-                updateProfileButton();
-                profileModal.style.display = 'none';
-                showToast('Профиль и все рекорды обновлены!');
-                loadLeaderboard(topPlayersList, 5); // Обновляем таблицу лидеров
-            } catch (error) {
-                console.error('Ошибка обновления профиля:', error);
-                showToast('Ошибка обновления профиля');
-            }
+    const newName = profileNameInput.value.trim();
+    if (!newName) {
+        showToast('Введите имя');
+        return;
+    }
+    
+    if (newName.length < 2 || newName.length > 20) {
+        showToast('Имя должно быть от 2 до 20 символов');
+        return;
+    }
+    
+    try {
+        // Обновляем имя в профиле и настройки
+        await db.ref(`users/${currentUser.id}`).update({
+            display_name: newName,
+            last_login: firebase.database.ServerValue.TIMESTAMP
+        });
+        
+        // Сохраняем настройки
+        await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
+        
+        // Обновляем имя во ВСЕХ существующих рекордах этого пользователя
+        const scoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
+        const snapshot = await scoresRef.once('value');
+        
+        if (snapshot.exists()) {
+            const updates = {};
+            snapshot.forEach(child => {
+                updates[`scores/${child.key}/display_name`] = newName;
+                updates[`scores/${child.key}/avatar`] = userSettings.avatar; // Добавляем аватар
+            });
+            await db.ref().update(updates);
         }
+        
+        currentUser.display_name = newName;
+        updateProfileButton();
+        profileModal.style.display = 'none';
+        showToast('Профиль и все рекорды обновлены!');
+        loadLeaderboard(topPlayersList, 5); // Обновляем таблицу лидеров
+    } catch (error) {
+        console.error('Ошибка обновления профиля:', error);
+        showToast('Ошибка обновления профиля');
+    }
+}
 
         async function saveScore() {
-            if (!currentUser.id || currentUser.id.startsWith('local_') || score === 0) return;
+    if (!currentUser.id || currentUser.id.startsWith('local_') || score === 0) return;
+    
+    try {
+        // Проверяем существующий рекорд пользователя
+        const userScoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
+        const snapshot = await userScoresRef.once('value');
+        
+        let shouldSave = true;
+        let existingScoreValue = 0;
+        
+        if (snapshot.exists()) {
+            let existingScoreKey = null;
             
-            try {
-                // Проверяем существующий рекорд пользователя
-                const userScoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
-                const snapshot = await userScoresRef.once('value');
-                
-                let shouldSave = true;
-                let existingScoreValue = 0;
-                
-                if (snapshot.exists()) {
-                    let existingScoreKey = null;
-                    
-                    // Находим максимальный рекорд пользователя
-                    snapshot.forEach(child => {
-                        if (child.val().score > existingScoreValue) {
-                            existingScoreValue = child.val().score;
-                            existingScoreKey = child.key;
-                        }
-                    });
-                    
-                    // Если новый рекорд лучше старого - удаляем старый
-                    if (score > existingScoreValue) {
-                        await db.ref(`scores/${existingScoreKey}`).remove();
-                    } else {
-                        shouldSave = false; // Не сохраняем, если рекорд не улучшен
-                    }
+            // Находим максимальный рекорд пользователя
+            snapshot.forEach(child => {
+                if (child.val().score > existingScoreValue) {
+                    existingScoreValue = child.val().score;
+                    existingScoreKey = child.key;
                 }
-                
-                if (shouldSave) {
-                    const newScore = {
-                        user_id: currentUser.id,
-                        display_name: currentUser.display_name,
-                        score: score,
-                        date: firebase.database.ServerValue.TIMESTAMP
-                    };
-                    
-                    await db.ref('scores').push(newScore);
-                    showToast(`Новый рекорд: ${score} очков!`);
-                } else {
-                    showToast(`Ваш лучший рекорд: ${existingScoreValue} очков`);
-                }
-                
-                loadLeaderboard(topPlayersList, 5); // Обновляем таблицу лидеров
-            } catch (error) {
-                console.error('Ошибка сохранения результата:', error);
-                showToast('Не удалось сохранить результат');
+            });
+            
+            // Если новый рекорд лучше старого - удаляем старый
+            if (score > existingScoreValue) {
+                await db.ref(`scores/${existingScoreKey}`).remove();
+            } else {
+                shouldSave = false; // Не сохраняем, если рекорд не улучшен
             }
         }
+        
+        if (shouldSave) {
+            const newScore = {
+                user_id: currentUser.id,
+                display_name: currentUser.display_name,
+                avatar: userSettings.avatar, // Добавляем аватар
+                score: score,
+                date: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            await db.ref('scores').push(newScore);
+            showToast(`Новый рекорд: ${score} очков!`);
+        } else {
+            showToast(`Ваш лучший рекорд: ${existingScoreValue} очков`);
+        }
+        
+        loadLeaderboard(topPlayersList, 5); // Обновляем таблицу лидеров
+    } catch (error) {
+        console.error('Ошибка сохранения результата:', error);
+        showToast('Не удалось сохранить результат');
+    }
+}
 
         async function loadLeaderboard(targetElement = topPlayersList, limit = 5) {
-            try {
-                // Показываем состояние загрузки
-                targetElement.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Загрузка...</li>';
-                
-                const scoresRef = db.ref('scores').orderByChild('score').limitToLast(100);
-                const snapshot = await scoresRef.once('value');
-                
-                if (!snapshot.exists()) {
-                    targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
-                    return;
-                }
-                
-                // Собираем только лучшие результаты для каждого пользователя
-                const bestScores = {};
-                snapshot.forEach(child => {
-                    const scoreData = child.val();
-                    if (!bestScores[scoreData.user_id] || scoreData.score > bestScores[scoreData.user_id].score) {
-                        bestScores[scoreData.user_id] = {
-                            id: child.key,
-                            ...scoreData
-                        };
-                    }
-                });
-                
-                // Преобразуем в массив и сортируем по убыванию
-                const scoresArray = Object.values(bestScores);
-                scoresArray.sort((a, b) => b.score - a.score);
-                
-                // Очищаем и заполняем таблицу
-                targetElement.innerHTML = '';
-                
-                const itemsToShow = limit ? scoresArray.slice(0, limit) : scoresArray;
-                
-                if (itemsToShow.length === 0) {
-                    targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
-                    return;
-                }
-                
-                itemsToShow.forEach((item, index) => {
-                    const li = document.createElement('li');
-                    li.textContent = `${index + 1}. ${item.display_name}: ${item.score || 0}`;
-                    
-                    if (item.date) {
-                        const date = new Date(item.date);
-                        const dateStr = date.toLocaleDateString();
-                        const small = document.createElement('small');
-                        small.textContent = ` (${dateStr})`;
-                        small.style.opacity = '0.7';
-                        li.appendChild(small);
-                    }
-                    
-                    // Подсвечиваем текущего пользователя
-                    if (item.user_id === currentUser.id) {
-                        li.style.fontWeight = 'bold';
-                        li.style.color = '#4CAF50';
-                    }
-                    
-                    targetElement.appendChild(li);
-                });
-                
-            } catch (error) {
-                console.error('Ошибка загрузки рекордов:', error);
-                targetElement.innerHTML = '<li class="no-scores">Не удалось загрузить рекорды<br><small>Попробуйте позже</small></li>';
-            }
+    try {
+        // Показываем состояние загрузки
+        targetElement.innerHTML = '<li style="display: flex; align-items: center;"><span class="loading-spinner"></span>Загрузка...</li>';
+        
+        const scoresRef = db.ref('scores').orderByChild('score').limitToLast(100);
+        const snapshot = await scoresRef.once('value');
+        
+        if (!snapshot.exists()) {
+            targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
+            return;
         }
+        
+        // Собираем только лучшие результаты для каждого пользователя
+        const bestScores = {};
+        snapshot.forEach(child => {
+            const scoreData = child.val();
+            if (!bestScores[scoreData.user_id] || scoreData.score > bestScores[scoreData.user_id].score) {
+                bestScores[scoreData.user_id] = {
+                    id: child.key,
+                    ...scoreData
+                };
+            }
+        });
+        
+        // Преобразуем в массив и сортируем по убыванию
+        const scoresArray = Object.values(bestScores);
+        scoresArray.sort((a, b) => b.score - a.score);
+        
+        // Очищаем и заполняем таблицу
+        targetElement.innerHTML = '';
+        
+        const itemsToShow = limit ? scoresArray.slice(0, limit) : scoresArray;
+        
+        if (itemsToShow.length === 0) {
+            targetElement.innerHTML = '<li class="no-scores">Рекордов пока нет<br><small>Сыграйте и сохраните свой результат!</small></li>';
+            return;
+        }
+        
+        itemsToShow.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.className = 'leaderboard-entry';
+            if (item.user_id === currentUser.id) {
+                li.classList.add('current-user');
+            }
+            
+            // Загружаем настройки пользователя для аватара
+            const avatar = item.avatar || 1;
+            const avatarColor = getAvatarColor(avatar);
+            
+            li.innerHTML = `
+                <div class="player-info">
+                    <div class="player-avatar" style="background: ${avatarColor}"></div>
+                    <span>${item.display_name}</span>
+                </div>
+                <div class="player-score">${item.score || 0}</div>
+            `;
+            
+            targetElement.appendChild(li);
+        });
+        
+    } catch (error) {
+        console.error('Ошибка загрузки рекордов:', error);
+        targetElement.innerHTML = '<li class="no-scores">Не удалось загрузить рекорды<br><small>Попробуйте позже</small></li>';
+    }
+}
+
+// Вспомогательная функция для цветов аватаров
+function getAvatarColor(avatarNum) {
+    const colors = [
+        'linear-gradient(135deg, #4CAF50, #8BC34A)',
+        'linear-gradient(135deg, #2196F3, #03A9F4)',
+        'linear-gradient(135deg, #9C27B0, #E91E63)',
+        'linear-gradient(135deg, #FF9800, #FFC107)',
+        'linear-gradient(135deg, #607D8B, #9E9E9E)',
+        'linear-gradient(135deg, #795548, #3E2723)'
+    ];
+    return colors[(avatarNum - 1) % colors.length];
+}
 
         // Запуск игры при загрузке страницы
         window.addEventListener('load', init);
