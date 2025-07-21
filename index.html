@@ -1062,16 +1062,16 @@ function applyProfileSettings() {
     }
     
     try {
-        // Обновляем имя в профиле и настройки
+        // Обновляем имя в профиле пользователя
         await db.ref(`users/${currentUser.id}`).update({
             display_name: newName,
             last_login: firebase.database.ServerValue.TIMESTAMP
         });
         
-        // Сохраняем настройки
+        // Сохраняем настройки профиля
         await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
         
-        // Обновляем имя во всех рекордах
+        // Обновляем только ТЕ рекорды, которые принадлежат текущему пользователю
         const scoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
         const snapshot = await scoresRef.once('value');
         
@@ -1079,7 +1079,7 @@ function applyProfileSettings() {
             const updates = {};
             snapshot.forEach(child => {
                 updates[`scores/${child.key}/display_name`] = newName;
-                updates[`scores/${child.key}/avatar`] = userSettings.avatar; // Добавляем аватар
+                updates[`scores/${child.key}/avatar`] = userSettings.avatar;
             });
             await db.ref().update(updates);
         }
@@ -1091,10 +1091,9 @@ function applyProfileSettings() {
         loadLeaderboard(topPlayersList, 5);
     } catch (error) {
         console.error('Ошибка обновления профиля:', error);
-        showToast('Ошибка обновления профиля');
+        showToast('Ошибка обновления профиля: ' + error.message);
     }
 }
-
         async function saveScore() {
     if (!currentUser.id || currentUser.id.startsWith('local_') || score === 0) return;
     
