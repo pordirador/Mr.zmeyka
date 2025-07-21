@@ -339,6 +339,22 @@
 .profile-bg-5 { background: linear-gradient(135deg, #607D8B, #9E9E9E); }
 .profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
 
+        /* Добавьте эти стили в секцию стилей */
+.avatar-option[data-avatar="1"] { background-color: #4CAF50; }
+.avatar-option[data-avatar="2"] { background-color: #2196F3; }
+.avatar-option[data-avatar="3"] { background-color: #9C27B0; }
+.avatar-option[data-avatar="4"] { background-color: #FF9800; }
+.avatar-option[data-avatar="5"] { background-color: #E91E63; }
+.avatar-option[data-avatar="6"] { background-color: #00BCD4; }
+
+/* Стили для фона страницы */
+body.profile-bg-1 { background: linear-gradient(135deg, #4CAF50, #8BC34A); }
+body.profile-bg-2 { background: linear-gradient(135deg, #2196F3, #03A9F4); }
+body.profile-bg-3 { background: linear-gradient(135deg, #9C27B0, #E91E63); }
+body.profile-bg-4 { background: linear-gradient(135deg, #FF9800, #FFC107); }
+body.profile-bg-5 { background: linear-gradient(135deg, #607D8B, #9E9E9E); }
+body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
+        
 /* Улучшенная таблица рекордов */
 .leaderboard-entry {
     display: flex;
@@ -648,10 +664,6 @@ function setupProfileOptions() {
 }
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
         function init() {
-    // Инициализация настроек профиля
-    loadProfileSettings();
-    setupProfileOptions();
-    
     // Настройка обработчиков событий
     playBtn.addEventListener('click', startGame);
     leaderboardBtn.addEventListener('click', showFullLeaderboard);
@@ -693,25 +705,6 @@ function setupProfileOptions() {
 }
 
             
-    // Инициализация размеров canvas
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    
-    // Проверка соединения с Firebase
-    db.ref('.info/connected').on('value', (snap) => {
-        if (snap.val() === true) {
-            console.log("Connected to Firebase");
-            identifyUser();
-        } else {
-            console.log("Disconnected from Firebase");
-            setupOfflineUser();
-        }
-    });
-    
-    // Загрузка таблицы лидеров
-    loadLeaderboard(topPlayersList, 5);
-
-            
         // ========== ФУНКЦИИ ИНТЕРФЕЙСА ==========
         // Загрузка настроек профиля
 async function loadProfileSettings() {
@@ -722,6 +715,7 @@ async function loadProfileSettings() {
         if (snapshot.exists()) {
             userSettings = snapshot.val();
             applyProfileSettings();
+            applyProfileBackground(); // Применяем фон при загрузке
         }
     } catch (error) {
         console.error('Ошибка загрузки настроек:', error);
@@ -736,15 +730,25 @@ function applyProfileSettings() {
 }
         
         function showProfileModal() {
-            if (!currentUser.id) {
-                showToast('Необходимо подключение к интернету');
-                return;
-            }
-            
-            profileIdSpan.textContent = currentUser.id.substring(0, 8) + '...';
-            profileNameInput.value = currentUser.display_name;
-            profileModal.style.display = 'flex';
-        }
+    if (!currentUser.id) {
+        showToast('Необходимо подключение к интернету');
+        return;
+    }
+    
+    profileIdSpan.textContent = currentUser.id.substring(0, 8) + '...';
+    profileNameInput.value = currentUser.display_name;
+    
+    // Сбрасываем выделение всех элементов
+    document.querySelectorAll('.avatar-option, .background-option, .snake-skin-option')
+        .forEach(el => el.classList.remove('selected'));
+    
+    // Выделяем текущие выбранные элементы
+    document.querySelector(`.avatar-option[data-avatar="${userSettings.avatar}"]`).classList.add('selected');
+    document.querySelector(`.background-option[data-bg="${userSettings.background}"]`).classList.add('selected');
+    document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"]`).classList.add('selected');
+    
+    profileModal.style.display = 'flex';
+}
         
         function showFullLeaderboard() {
             leaderboardModal.style.display = 'flex';
@@ -1051,52 +1055,65 @@ function applyProfileSettings() {
 
         async function updateProfile() {
     const newName = profileNameInput.value.trim();
-    
-    // Валидация имени
-    if (!newName || newName.length < 2 || newName.length > 20) {
-        showToast('Имя должно содержать от 2 до 20 символов');
+    if (!newName) {
+        showToast('Введите имя');
         return;
     }
-
+    
+    if (newName.length < 2 || newName.length > 20) {
+        showToast('Имя должно быть от 2 до 20 символов');
+        return;
+    }
+    
     try {
-        // 1. Обновляем основную информацию пользователя
+        // Обновляем имя в профиле и настройки
         await db.ref(`users/${currentUser.id}`).update({
             display_name: newName,
             last_login: firebase.database.ServerValue.TIMESTAMP
         });
-
-        // 2. Сохраняем настройки профиля
+        
+        // Сохраняем настройки
         await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
-
-        // 3. Обновляем все рекорды пользователя
+        
+        // Обновляем имя во ВСЕХ существующих рекордах этого пользователя
         const scoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
         const snapshot = await scoresRef.once('value');
-
+        
         if (snapshot.exists()) {
             const updates = {};
             snapshot.forEach(child => {
                 updates[`scores/${child.key}/display_name`] = newName;
                 updates[`scores/${child.key}/avatar`] = userSettings.avatar;
             });
-            
-            if (Object.keys(updates).length > 0) {
-                await db.ref().update(updates);
-            }
+            await db.ref().update(updates);
         }
-
-        // Обновляем локальные данные
+        
         currentUser.display_name = newName;
         updateProfileButton();
         profileModal.style.display = 'none';
-        showToast('Профиль успешно обновлен!');
         
-        // Обновляем таблицу лидеров
+        // Применяем новый фон профиля
+        applyProfileBackground();
+        
+        showToast('Профиль и все рекорды обновлены!');
         loadLeaderboard(topPlayersList, 5);
     } catch (error) {
         console.error('Ошибка обновления профиля:', error);
-        showToast('Не удалось обновить профиль: ' + error.message);
+        showToast('Ошибка обновления профиля');
     }
 }
+
+        function applyProfileBackground() {
+    // Удаляем все классы фона
+    document.body.classList.remove(
+        'profile-bg-1', 'profile-bg-2', 'profile-bg-3',
+        'profile-bg-4', 'profile-bg-5', 'profile-bg-6'
+    );
+    
+    // Добавляем текущий выбранный фон
+    document.body.classList.add(`profile-bg-${userSettings.background}`);
+}
+        
         async function saveScore() {
     if (!currentUser.id || currentUser.id.startsWith('local_') || score === 0) return;
     
