@@ -347,7 +347,7 @@
 .avatar-option[data-avatar="5"] { background-color: #E91E63; }
 .avatar-option[data-avatar="6"] { background-color: #00BCD4; }
 
-/* Стили для фона страницы */
+/* Обновляем стили для фона профиля */
 body.profile-bg-1 { background: linear-gradient(135deg, #4CAF50, #8BC34A); }
 body.profile-bg-2 { background: linear-gradient(135deg, #2196F3, #03A9F4); }
 body.profile-bg-3 { background: linear-gradient(135deg, #9C27B0, #E91E63); }
@@ -471,15 +471,7 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
         </div>
     </div>
     
-    <div id="profile-modal" class="modal">
-    <div class="modal-content">
-        <h2>Мой профиль</h2>
-        <button id="close-profile" class="menu-btn" style="position: absolute; top: 10px; right: 10px; width: auto; padding: 5px 10px;">×</button>
-        <div id="profile-content">
-            <!-- остальное содержимое без изменений -->
-        </div>
-    </div>
-</div>
+    
     <div class="modal-content">
         <h2>Мой профиль</h2>
         <div id="profile-content">
@@ -547,7 +539,9 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
     <div class="modal-content">
         <button class="close-modal-btn">&times;</button>
         <h2>Мой профиль</h2>
-        <!-- остальное содержимое модального окна -->
+        <div id="profile-content">
+            <!-- остальное содержимое профиля -->
+        </div>
     </div>
 </div>
     <!-- Модальное окно таблицы рекордов -->
@@ -721,12 +715,16 @@ function setupProfileOptions() {
     
     // Закрытие модальных окон по клику вне контента
     document.querySelectorAll('.modal').forEach(modal => {
+        
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.style.display = 'none';
                 document.querySelectorAll('.close-modal-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             btn.closest('.modal').style.display = 'none';
+            document.querySelector('.close-modal-btn').addEventListener('click', () => {
+    profileModal.style.display = 'none';
+});
         });
     });
             }
@@ -760,7 +758,6 @@ async function loadProfileSettings() {
         if (snapshot.exists()) {
             userSettings = snapshot.val();
             applyProfileSettings();
-            applyProfileBackground(); // Применяем фон при загрузке
         }
     } catch (error) {
         console.error('Ошибка загрузки настроек:', error);
@@ -769,9 +766,24 @@ async function loadProfileSettings() {
 
 // Применение настроек профиля
 function applyProfileSettings() {
-    // Здесь будет код для применения настроек
-    // (цвет змейки, фон профиля и т.д.)
-    console.log("Настройки профиля загружены:", userSettings);
+    // Показываем ID пользователя
+    if (currentUser.id) {
+        profileIdSpan.textContent = currentUser.id.substring(0, 8) + '...';
+    }
+    
+    // Применяем выбранный фон
+    document.body.className = '';
+    document.body.classList.add(`profile-bg-${userSettings.background}`);
+    
+    // Выбираем активные элементы в профиле
+    document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`.avatar-option[data-avatar="${userSettings.avatar}"]`)?.classList.add('selected');
+    
+    document.querySelectorAll('.background-option').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`.background-option[data-bg="${userSettings.background}"]`)?.classList.add('selected');
+    
+    document.querySelectorAll('.snake-skin-option').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"]`)?.classList.add('selected');
 }
         
         function showProfileModal() {
@@ -812,13 +824,16 @@ function applyProfileSettings() {
         }
         
         function returnToMenu() {
-            gameContainer.style.display = 'none';
-            mainMenu.style.display = 'block';
-            clearInterval(gameLoop);
-            clearInterval(refreshInterval);
-            direction = 'none';
-            nextDirection = 'none';
-        }
+    gameContainer.style.display = 'none';
+    mainMenu.style.display = 'block';
+    clearInterval(gameLoop);
+    clearInterval(refreshInterval);
+    direction = 'none';
+    nextDirection = 'none';
+    
+    // Скрываем таблицу рекордов в главном меню
+    document.getElementById('leaderboard').style.display = 'none';
+}
         
         function updateProfileButton() {
             profileBtn.textContent = currentUser.display_name;
@@ -965,7 +980,6 @@ function applyProfileSettings() {
         }
         
         function startGame() {
-    // Настройка игры
     mainMenu.style.display = 'none';
     gameContainer.style.display = 'block';
     gameOverElement.style.display = 'none';
