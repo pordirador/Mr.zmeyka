@@ -394,6 +394,10 @@
     </style>
 </head>
 <body>
+    <div id="leaderboard">
+    <h3>Лучшие игроки</h3>
+    <ol id="top-players"></ol>
+</div>
     <!-- Главное меню -->
     <div id="main-menu">
         <h1>Змейка</h1>
@@ -671,6 +675,22 @@ function setupProfileOptions() {
             }
         });
     });
+    
+    // Инициализация размеров canvas
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    // Проверка соединения с Firebase
+    db.ref('.info/connected').on('value', (snap) => {
+        if (snap.val() === true) {
+            console.log("Connected to Firebase");
+            identifyUser();
+        } else {
+            console.log("Disconnected from Firebase");
+            setupOfflineUser();
+        }
+    });
+}
 
             
     // Инициализация размеров canvas
