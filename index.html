@@ -617,6 +617,10 @@ function setupProfileOptions() {
 }
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
         function init() {
+    // Инициализация настроек профиля
+    loadProfileSettings();
+    setupProfileOptions();
+    
     // Настройка обработчиков событий
     playBtn.addEventListener('click', startGame);
     leaderboardBtn.addEventListener('click', showFullLeaderboard);
@@ -649,7 +653,7 @@ function setupProfileOptions() {
     db.ref('.info/connected').on('value', (snap) => {
         if (snap.val() === true) {
             console.log("Connected to Firebase");
-            identifyUser().then(loadProfileSettings); // Загружаем настройки после идентификации
+            identifyUser();
         } else {
             console.log("Disconnected from Firebase");
             setupOfflineUser();
