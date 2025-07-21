@@ -367,6 +367,30 @@
     background: #e8f5e9;
     font-weight: bold;
 }
+        /* Добавьте это в конец стилей */
+#profile-content {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+#profile-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+#profile-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+#profile-content::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+#profile-content::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
     </style>
 </head>
 <body>
@@ -394,6 +418,14 @@
     </div>
     
     <div id="profile-modal" class="modal">
+    <div class="modal-content">
+        <h2>Мой профиль</h2>
+        <button id="close-profile" class="menu-btn" style="position: absolute; top: 10px; right: 10px; width: auto; padding: 5px 10px;">×</button>
+        <div id="profile-content">
+            <!-- остальное содержимое без изменений -->
+        </div>
+    </div>
+</div>
     <div class="modal-content">
         <h2>Мой профиль</h2>
         <div id="profile-content">
@@ -636,10 +668,14 @@ function setupProfileOptions() {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.style.display = 'none';
+                document.getElementById('close-profile').addEventListener('click', () => {
+    profileModal.style.display = 'none';
+});
             }
         });
     });
-    
+
+            
     // Инициализация размеров canvas
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
