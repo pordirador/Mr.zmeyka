@@ -476,16 +476,6 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
             <button id="menu-btn" class="menu-btn" style="margin-top: 15px; background: #f44336;">В меню</button>
         </div>
     </div>
-    
-    
-    <div class="modal-content">
-        <h2>Мой профиль</h2>
-        <div id="profile-content">
-            <div class="profile-section">
-                <h3>Основная информация</h3>
-                <p><strong>Ваш ID:</strong> <span id="profile-id"></span></p>
-                <input type="text" id="profile-name-input" placeholder="Ваше игровое имя" maxlength="20">
-            </div>
             
             <div class="profile-section">
                 <h3>Аватар профиля</h3>
@@ -762,21 +752,33 @@ function setupProfileOptions() {
     profileSaveBtn.addEventListener('click', updateProfile);
     
     // Закрытие модальных окон по клику вне контента
-    document.querySelectorAll('.modal').forEach(modal => {
+    profileSaveBtn.addEventListener('click', async function() {
+    const newName = profileNameInput.value.trim();
+    if (newName.length < 2) {
+        showToast('Имя слишком короткое');
+        return;
+    }
+    
+    try {
+        // Сохраняем настройки
+        await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
         
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-                document.querySelectorAll('.close-modal-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            btn.closest('.modal').style.display = 'none';
-            document.querySelector('.close-modal-btn').addEventListener('click', () => {
-    profileModal.style.display = 'none';
-                document.querySelectorAll(".background-option").forEach(option => {
-    option.addEventListener("click", () => {
-        userSettings.background = parseInt(option.dataset.bg);
-        document.querySelectorAll(".background-option").forEach(el => el.classList.remove("selected"));
-        option.classList.add("selected");
+        // Обновляем имя
+        await db.ref(`users/${currentUser.id}`).update({
+            display_name: newName
+        });
+        
+        currentUser.display_name = newName;
+        updateProfileButton();
+        profileModal.style.display = 'none';
+        showToast('Настройки сохранены!');
+        
+        // Применяем изменения
+        applyProfileBackground();
+    } catch (error) {
+        showToast('Ошибка сохранения');
+    }
+});
     });
 });
 });
@@ -842,20 +844,26 @@ function applyProfileSettings() {
 }
         
         function showProfileModal() {
-    // Показываем ID пользователя
-    profileIdSpan.textContent = currentUser.id ? currentUser.id.substring(0, 8) + "..." : "Гость";
+    if (!currentUser.id) {
+        showToast('Нужно подключение к интернету');
+        return;
+    }
     
-    // Сбрасываем выделение всех элементов
-    document.querySelectorAll(".avatar-option, .background-option, .snake-skin-option")
-        .forEach(el => el.classList.remove("selected"));
+    // Обновляем данные перед показом
+    profileIdSpan.textContent = currentUser.id.substring(0, 8) + '...';
+    profileNameInput.value = currentUser.display_name;
+    
+    // Сбрасываем выделения
+    document.querySelectorAll('.avatar-option, .background-option, .snake-skin-option')
+        .forEach(el => el.classList.remove('selected'));
     
     // Выделяем текущие настройки
-    document.querySelector(`.avatar-option[data-avatar="${userSettings.avatar}"]`).classList.add("selected");
-    document.querySelector(`.background-option[data-bg="${userSettings.background}"]`).classList.add("selected");
-    document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"]`).classList.add("selected");
+    document.querySelector(`.avatar-option[data-avatar="${userSettings.avatar}"]`).classList.add('selected');
+    document.querySelector(`.background-option[data-bg="${userSettings.background}"]`).classList.add('selected');
+    document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"]`).classList.add('selected');
     
-    // Показываем модальное окно
-    profileModal.style.display = "flex";
+    // Показываем только модальное окно
+    profileModal.style.display = 'flex';
 }
         
         function showFullLeaderboard() {
@@ -1354,7 +1362,7 @@ function applyProfileSettings() {
     }
 }
 
-// Вспомогательная функция для цветов аватаров
+// Вспомогательная функция для dцветов аватаров
 function getAvatarColor(avatarNum) {
     const colors = [
         'linear-gradient(135deg, #4CAF50, #8BC34A)',
