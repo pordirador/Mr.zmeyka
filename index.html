@@ -533,6 +533,12 @@
         let refreshInterval;
         
         // Текущий пользователь
+        // Настройки профиля
+let userSettings = {
+    avatar: 1,
+    background: 1,
+    snakeSkin: 1
+}; 
         let currentUser = {
             id: null,
             display_name: 'Гость'
@@ -610,51 +616,73 @@ function setupProfileOptions() {
     });
 }
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
-        function init()
-            // Инициализация настроек профиля
-loadProfileSettings();
-setupProfileOptions();{
-            // Настройка обработчиков событий
-            playBtn.addEventListener('click', startGame);
-            leaderboardBtn.addEventListener('click', showFullLeaderboard);
-            howToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'flex');
-            profileBtn.addEventListener('click', showProfileModal);
-            
-            closeHowToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'none');
-            closeLeaderboardBtn.addEventListener('click', () => leaderboardModal.style.display = 'none');
-            refreshLeaderboardBtn.addEventListener('click', () => loadLeaderboard(fullLeaderboard, null));
-            
-            restartBtn.addEventListener('click', startGame);
-            menuBtn.addEventListener('click', returnToMenu);
-            
-            profileSaveBtn.addEventListener('click', updateProfile);
-            
-            // Закрытие модальных окон по клику вне контента
-            document.querySelectorAll('.modal').forEach(modal => {
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal) {
-                        modal.style.display = 'none';
-                    }
-                });
-            });
+        function init() {
+    // Настройка обработчиков событий
+    playBtn.addEventListener('click', startGame);
+    leaderboardBtn.addEventListener('click', showFullLeaderboard);
+    howToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'flex');
+    profileBtn.addEventListener('click', showProfileModal);
+    
+    closeHowToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'none');
+    closeLeaderboardBtn.addEventListener('click', () => leaderboardModal.style.display = 'none');
+    refreshLeaderboardBtn.addEventListener('click', () => loadLeaderboard(fullLeaderboard, null));
+    
+    restartBtn.addEventListener('click', startGame);
+    menuBtn.addEventListener('click', returnToMenu);
+    
+    profileSaveBtn.addEventListener('click', updateProfile);
+    
+    // Закрытие модальных окон по клику вне контента
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
         });
-            
-            // Инициализация размеров canvas
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
-            
-            // Проверка соединения с Firebase
-            db.ref('.info/connected').on('value', (snap) => {
-                if (snap.val() === true) {
-                    console.log("Connected to Firebase");
-                    identifyUser();
-                } else {
-                    console.log("Disconnected from Firebase");
-                    setupOfflineUser();
-                }
-            });
+    });
+    
+    // Инициализация размеров canvas
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    // Проверка соединения с Firebase
+    db.ref('.info/connected').on('value', (snap) => {
+        if (snap.val() === true) {
+            console.log("Connected to Firebase");
+            identifyUser().then(loadProfileSettings); // Загружаем настройки после идентификации
+        } else {
+            console.log("Disconnected from Firebase");
+            setupOfflineUser();
+        }
+    });
+    
+    // Загрузка таблицы лидеров
+    loadLeaderboard(topPlayersList, 5);
+}
             
         // ========== ФУНКЦИИ ИНТЕРФЕЙСА ==========
+        // Загрузка настроек профиля
+async function loadProfileSettings() {
+    if (!currentUser.id || currentUser.id.startsWith('local_')) return;
+    
+    try {
+        const snapshot = await db.ref(`userSettings/${currentUser.id}`).once('value');
+        if (snapshot.exists()) {
+            userSettings = snapshot.val();
+            applyProfileSettings();
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки настроек:', error);
+    }
+}
+
+// Применение настроек профиля
+function applyProfileSettings() {
+    // Здесь будет код для применения настроек
+    // (цвет змейки, фон профиля и т.д.)
+    console.log("Настройки профиля загружены:", userSettings);
+}
+        
         function showProfileModal() {
             if (!currentUser.id) {
                 showToast('Необходимо подключение к интернету');
@@ -991,7 +1019,7 @@ setupProfileOptions();{
         // Сохраняем настройки
         await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
         
-        // Обновляем имя во ВСЕХ существующих рекордах этого пользователя
+        // Обновляем имя во всех рекордах
         const scoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
         const snapshot = await scoresRef.once('value');
         
@@ -1007,8 +1035,8 @@ setupProfileOptions();{
         currentUser.display_name = newName;
         updateProfileButton();
         profileModal.style.display = 'none';
-        showToast('Профиль и все рекорды обновлены!');
-        loadLeaderboard(topPlayersList, 5); // Обновляем таблицу лидеров
+        showToast('Профиль обновлен!');
+        loadLeaderboard(topPlayersList, 5);
     } catch (error) {
         console.error('Ошибка обновления профиля:', error);
         showToast('Ошибка обновления профиля');
