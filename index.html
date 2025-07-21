@@ -1053,13 +1053,8 @@ function applyProfileSettings() {
     const newName = profileNameInput.value.trim();
     
     // Валидация имени
-    if (!newName) {
-        showToast('Введите имя');
-        return;
-    }
-    
-    if (newName.length < 2 || newName.length > 20) {
-        showToast('Имя должно быть от 2 до 20 символов');
+    if (!newName || newName.length < 2 || newName.length > 20) {
+        showToast('Имя должно содержать от 2 до 20 символов');
         return;
     }
 
@@ -1073,28 +1068,25 @@ function applyProfileSettings() {
         // 2. Сохраняем настройки профиля
         await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
 
-        // 3. Находим и обновляем ВСЕ рекорды этого пользователя
-        const scoresQuery = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
-        const snapshot = await scoresQuery.once('value');
+        // 3. Обновляем все рекорды пользователя
+        const scoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
+        const snapshot = await scoresRef.once('value');
 
         if (snapshot.exists()) {
             const updates = {};
-            
             snapshot.forEach(child => {
-                const scoreKey = child.key;
-                updates[`scores/${scoreKey}/display_name`] = newName;
-                updates[`scores/${scoreKey}/avatar`] = userSettings.avatar;
+                updates[`scores/${child.key}/display_name`] = newName;
+                updates[`scores/${child.key}/avatar`] = userSettings.avatar;
             });
-
-            // Выполняем все обновления одним запросом
-            await db.ref().update(updates);
+            
+            if (Object.keys(updates).length > 0) {
+                await db.ref().update(updates);
+            }
         }
 
         // Обновляем локальные данные
         currentUser.display_name = newName;
         updateProfileButton();
-        
-        // Закрываем модальное окно и показываем уведомление
         profileModal.style.display = 'none';
         showToast('Профиль успешно обновлен!');
         
@@ -1102,7 +1094,7 @@ function applyProfileSettings() {
         loadLeaderboard(topPlayersList, 5);
     } catch (error) {
         console.error('Ошибка обновления профиля:', error);
-        showToast('Ошибка обновления: ' + error.message);
+        showToast('Не удалось обновить профиль: ' + error.message);
     }
 }
         async function saveScore() {
