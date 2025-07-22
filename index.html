@@ -1296,10 +1296,57 @@ function selectSnakeSkin(e) {
     ctx.beginPath();
     ctx.arc(food.x + gridSize/2, food.y + gridSize/2, gridSize/2 - 1, 0, Math.PI * 2);
     ctx.fill();
+} // <- Добавлена закрывающая скобка
 
-
+function update() {
+    // Обновляем направление
+    direction = nextDirection;
     
+    if (direction === 'none') return;
     
+    const head = { ...snake[0] };
+    
+    // Движение головы
+    switch (direction) {
+        case 'up': head.y -= gridSize; break;
+        case 'down': head.y += gridSize; break;
+        case 'left': head.x -= gridSize; break;
+        case 'right': head.x += gridSize; break;
+    }
+    
+    // Проверка столкновений
+    if (head.x < 0 || head.y < 0 || head.x >= canvas.width || head.y >= canvas.height) {
+        gameOver();
+        return;
+    }
+    
+    for (let i = 1; i < snake.length; i++) {
+        if (snake[i].x === head.x && snake[i].y === head.y) {
+            gameOver();
+            return;
+        }
+    }
+    
+    // Добавление новой головы
+    snake.unshift(head);
+    
+    // Проверка съедания еды
+    if (head.x === food.x && head.y === food.y) {
+        score += 10;
+        scoreElement.textContent = score;
+        
+        // Увеличение скорости каждые 50 очков
+        if (score % 50 === 0 && gameSpeed > 50) {
+            gameSpeed -= 10;
+            clearInterval(gameLoop);
+            gameLoop = setInterval(gameStep, gameSpeed);
+        }
+        
+        generateFood();
+    } else {
+        snake.pop(); // Удаление хвоста, если не съели еду
+    }
+}
     
     // Применяем выбранный фон
     applyProfileBackground();
