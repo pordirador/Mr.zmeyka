@@ -26,13 +26,15 @@
             overflow: hidden;
             touch-action: manipulation;
         }
+        
         #leaderboard {
-    display: none; /* Скрываем по умолчанию */
-}
-
-#leaderboard-modal.active #leaderboard {
-    display: block; /* Показываем только в модальном окне */
-} 
+            display: none;
+        }
+        
+        #leaderboard-modal.active #leaderboard {
+            display: block;
+        }
+        
         /* Главное меню */
         #main-menu {
             text-align: center;
@@ -147,10 +149,20 @@
             margin-bottom: 30px;
         }
         
-        /* Анимация загрузки */
+        /* Анимации */
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes slide-in {
+            from { bottom: -50px; opacity: 0; }
+            to { bottom: 20px; opacity: 1; }
+        }
+        
+        @keyframes modal-open {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
         
         .loading-spinner {
@@ -177,53 +189,10 @@
             z-index: 1000;
             animation: slide-in 0.3s ease-out;
         }
-        /* Добавить в стили */
-/* Стили для магазина */
-.coins-display {
-    text-align: center;
-    font-size: 1.2rem;
-    margin-bottom: 15px;
-    font-weight: bold;
-    color: #FFD700; /* золотой цвет */
-}
-
-.locked {
-    opacity: 0.7;
-    position: relative;
-    cursor: not-allowed;
-}
-
-.locked::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    border-radius: 6px;
-}
-
-.price-tag {
-    position: absolute;
-    bottom: 5px;
-    right: 5px;
-    background: gold;
-    color: black;
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-size: 0.8rem;
-    z-index: 2;
-}
         
         .fade-out {
             opacity: 0;
             transition: opacity 0.5s;
-        }
-        
-        @keyframes slide-in {
-            from { bottom: -50px; opacity: 0; }
-            to { bottom: 20px; opacity: 1; }
         }
         
         /* Модальные окна */
@@ -247,6 +216,9 @@
             max-width: 350px;
             width: 90%;
             animation: modal-open 0.3s ease-out;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
         }
         
         .modal-content h2 {
@@ -272,39 +244,208 @@
             margin-top: 10px;
         }
         
-        .modal-content .secondary-btn {
-            background: #2196F3;
-            color: white;
+        .close-modal-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #777;
+            padding: 5px 10px;
         }
         
-        .modal-content .danger-btn {
-            background: #f44336;
-            color: white;
+        .close-modal-btn:hover {
+            color: #333;
         }
         
         /* Таблица рекордов */
-        #full-leaderboard {
+        #full-leaderboard, #top-players {
             list-style-type: none;
             padding: 0;
+        }
+        
+        #full-leaderboard {
             max-height: 60vh;
             overflow-y: auto;
         }
         
-        #full-leaderboard li {
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             padding: 8px 12px;
             margin: 5px 0;
             background: #f9f9f9;
             border-radius: 4px;
         }
         
-        #full-leaderboard li:nth-child(odd) {
-            background: #f0f0f9;
+        .leaderboard-entry .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
-        @keyframes modal-open {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        .leaderboard-entry .player-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-size: cover;
         }
+        
+        .leaderboard-entry.current-user {
+            background: #e8f5e9;
+            font-weight: bold;
+        }
+        
+        /* Профиль и магазин */
+        #profile-content, .shop-content {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding-right: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        #profile-content::-webkit-scrollbar, .shop-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #profile-content::-webkit-scrollbar-track, .shop-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        #profile-content::-webkit-scrollbar-thumb, .shop-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        
+        #profile-content::-webkit-scrollbar-thumb:hover, .shop-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        .profile-section, .shop-section {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .profile-section h3, .shop-section h3 {
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+        
+        .avatar-grid, .background-grid, .snake-skin-grid, .shop-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .avatar-option, .background-option, .snake-skin-option, .shop-item {
+            aspect-ratio: 1/1;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+        
+        .avatar-option, .snake-skin-option {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 1.2rem;
+        }
+        
+        .avatar-option:hover, .background-option:hover, 
+        .snake-skin-option:hover, .shop-item:hover {
+            transform: scale(1.05);
+        }
+        
+        .avatar-option.selected, .background-option.selected, 
+        .snake-skin-option.selected, .shop-item.selected {
+            border-color: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+        
+        .locked {
+            opacity: 0.7;
+            position: relative;
+            cursor: not-allowed;
+            filter: grayscale(80%);
+        }
+        
+        .locked::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            border-radius: 6px;
+        }
+        
+        .price-tag, .shop-item-price {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: gold;
+            color: black;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            z-index: 2;
+        }
+        
+        .shop-item-price {
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            text-align: center;
+            padding: 5px;
+        }
+        
+        .shop-item.unlocked .shop-item-price {
+            background: rgba(76, 175, 80, 0.8);
+        }
+        
+        .coins-display {
+            background: #FFD700;
+            color: #333;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        /* Цветовые стили */
+        .snake-color-1 { background-color: #4CAF50; }
+        .snake-color-2 { background-color: #2196F3; }
+        .snake-color-3 { background-color: #9C27B0; }
+        .snake-color-4 { background-color: #FF9800; }
+        .snake-color-5 { background-color: #E91E63; }
+        .snake-color-6 { background-color: #00BCD4; }
+        
+        .profile-bg-1 { background: linear-gradient(135deg, #4CAF50, #8BC34A); }
+        .profile-bg-2 { background: linear-gradient(135deg, #2196F3, #03A9F4); }
+        .profile-bg-3 { background: linear-gradient(135deg, #9C27B0, #E91E63); }
+        .profile-bg-4 { background: linear-gradient(135deg, #FF9800, #FFC107); }
+        .profile-bg-5 { background: linear-gradient(135deg, #607D8B, #9E9E9E); }
+        .profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
         
         /* Адаптация для мобильных */
         @media (max-width: 500px) {
@@ -322,232 +463,9 @@
                 font-size: 0.8em;
             }
         }
-        /* Стили профиля */
-#profile-content {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.profile-section {
-    background: #f5f5f5;
-    padding: 15px;
-    border-radius: 10px;
-    margin-bottom: 15px;
-}
-
-.profile-section h3 {
-    margin-bottom: 10px;
-    color: #4CAF50;
-}
-
-.avatar-grid, .background-grid, .snake-skin-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.avatar-option, .background-option, .snake-skin-option {
-    aspect-ratio: 1/1;
-    border-radius: 8px;
-    cursor: pointer;
-    border: 2px solid transparent;
-    transition: all 0.2s;
-    background-size: cover;
-    background-position: center;
-}
-
-.avatar-option:hover, .background-option:hover, .snake-skin-option:hover {
-    transform: scale(1.05);
-}
-
-.avatar-option.selected, .background-option.selected, .snake-skin-option.selected {
-    border-color: #4CAF50;
-    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
-}
-
-/* Цвета для скинов змейки */
-.snake-color-1 { background-color: #4CAF50; } /* Зеленый */
-.snake-color-2 { background-color: #2196F3; } /* Синий */
-.snake-color-3 { background-color: #9C27B0; } /* Фиолетовый */
-.snake-color-4 { background-color: #FF9800; } /* Оранжевый */
-.snake-color-5 { background-color: #E91E63; } /* Розовый */
-.snake-color-6 { background-color: #00BCD4; } /* Бирюзовый */
-
-/* Фоны для профиля */
-.profile-bg-1 { background: linear-gradient(135deg, #4CAF50, #8BC34A); }
-.profile-bg-2 { background: linear-gradient(135deg, #2196F3, #03A9F4); }
-.profile-bg-3 { background: linear-gradient(135deg, #9C27B0, #E91E63); }
-.profile-bg-4 { background: linear-gradient(135deg, #FF9800, #FFC107); }
-.profile-bg-5 { background: linear-gradient(135deg, #607D8B, #9E9E9E); }
-.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
-
-        /* Добавьте эти стили в секцию стилей */
-.avatar-option[data-avatar="1"] { background-color: #4CAF50; }
-.avatar-option[data-avatar="2"] { background-color: #2196F3; }
-.avatar-option[data-avatar="3"] { background-color: #9C27B0; }
-.avatar-option[data-avatar="4"] { background-color: #FF9800; }
-.avatar-option[data-avatar="5"] { background-color: #E91E63; }
-.avatar-option[data-avatar="6"] { background-color: #00BCD4; }
-
-/* Обновляем стили для фона профиля */
-body.profile-bg-1 { background: linear-gradient(135deg, #4CAF50, #8BC34A); }
-body.profile-bg-2 { background: linear-gradient(135deg, #2196F3, #03A9F4); }
-body.profile-bg-3 { background: linear-gradient(135deg, #9C27B0, #E91E63); }
-body.profile-bg-4 { background: linear-gradient(135deg, #FF9800, #FFC107); }
-body.profile-bg-5 { background: linear-gradient(135deg, #607D8B, #9E9E9E); }
-body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
-        
-/* Улучшенная таблица рекордов */
-.leaderboard-entry {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    margin: 5px 0;
-    background: #f9f9f9;
-    border-radius: 4px;
-}
-
-.leaderboard-entry .player-info {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.leaderboard-entry .player-avatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background-size: cover;
-}
-
-.leaderboard-entry.current-user {
-    background: #e8f5e9;
-    font-weight: bold;
-}
-        /* Добавьте это в конец стилей */
-#profile-content {
-    max-height: 70vh;
-    overflow-y: auto;
-    padding-right: 8px;
-}
-
-#profile-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-#profile-content::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-#profile-content::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 3px;
-}
-
-#profile-content::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-        /* Стили для модального окна профиля */
-.modal-content {
-    position: relative;
-    max-height: 90vh;
-    overflow-y: auto;
-    width: 90%;
-    max-width: 500px;
-}
-
-.close-modal-btn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: #777;
-    padding: 5px 10px;
-}
-
-.close-modal-btn:hover {
-    color: #333;
-}
-/* Стили для магазина */
-.coins-display {
-    background: #FFD700;
-    color: #333;
-    padding: 10px;
-    border-radius: 8px;
-    text-align: center;
-    margin-bottom: 20px;
-    font-weight: bold;
-    font-size: 1.1rem;
-}
-
-.shop-section {
-    margin-bottom: 20px;
-    background: #f5f5f5;
-    padding: 15px;
-    border-radius: 10px;
-}
-
-.shop-section h3 {
-    margin-bottom: 10px;
-    color: #4CAF50;
-}
-
-.shop-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-}
-
-.shop-item {
-    aspect-ratio: 1/1;
-    border-radius: 8px;
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
-    border: 2px solid #ddd;
-}
-
-.shop-item.locked {
-    filter: grayscale(80%);
-    opacity: 0.7;
-}
-
-.shop-item-price {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: rgba(0,0,0,0.7);
-    color: white;
-    text-align: center;
-    padding: 5px;
-    font-size: 0.8rem;
-}
-
-.shop-item.unlocked .shop-item-price {
-    background: rgba(76, 175, 80, 0.8);
-}
-
-.shop-item.selected {
-    border-color: #4CAF50;
-    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
-}
-/* Стили для аватаров */
-.avatar-option {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    color: white;
-    font-size: 1.2rem;
-}
+    </style>
+</head>
+<body>
     </style>
 </head>
 <body>
@@ -687,53 +605,86 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
     
     <script>
         // ========== ИНИЦИАЛИЗАЦИЯ FIREBASE ==========
-        const firebaseConfig = {
-            apiKey: "AIzaSyBfSUiSe_sWYTLEyA38DN2C7xtKL3uwV8E",
-            authDomain: "mr-zmeyka.firebaseapp.com",
-            databaseURL: "https://mr-zmeyka-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "mr-zmeyka",
-            storageBucket: "mr-zmeyka.appspot.com",
-            messagingSenderId: "521576761425",
-            appId: "1:521576761425:web:8dc4125c3a1b5f0a285070"
-        };
+const firebaseConfig = {
+    apiKey: "AIzaSyBfSUiSe_sWYTLEyA38DN2C7xtKL3uwV8E",
+    authDomain: "mr-zmeyka.firebaseapp.com",
+    databaseURL: "https://mr-zmeyka-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "mr-zmeyka",
+    storageBucket: "mr-zmeyka.appspot.com",
+    messagingSenderId: "521576761425",
+    appId: "1:521576761425:web:8dc4125c3a1b5f0a285070"
+};
 
-        // Инициализация Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        const auth = firebase.auth();
+// Инициализация Firebase
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
 
-        // Включим логирование для отладки
-        firebase.database.enableLogging(true);
+// Включим логирование для отладки
+firebase.database.enableLogging(true);
 
-        // ========== ЭЛЕМЕНТЫ ИНТЕРФЕЙСА ==========
-        const mainMenu = document.getElementById('main-menu');
-        const playBtn = document.getElementById('play-btn');
-        const leaderboardBtn = document.getElementById('leaderboard-btn');
-        const howToPlayBtn = document.getElementById('how-to-play-btn');
-        const profileBtn = document.getElementById('profile-btn');
-        
-        const gameContainer = document.getElementById('game-container');
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
-        const scoreElement = document.getElementById('score');
-        const topPlayersList = document.getElementById('top-players');
-        const fullLeaderboard = document.getElementById('full-leaderboard');
-        
-        const gameOverElement = document.getElementById('game-over');
-        const finalScoreElement = document.getElementById('final-score');
-        const restartBtn = document.getElementById('restart-btn');
-        const menuBtn = document.getElementById('menu-btn');
-        
-        // Модальные окна
-        // Модальные окна
+// ========== ЭЛЕМЕНТЫ ИНТЕРФЕЙСА ==========
+const mainMenu = document.getElementById('main-menu');
+const playBtn = document.getElementById('play-btn');
+const leaderboardBtn = document.getElementById('leaderboard-btn');
+const howToPlayBtn = document.getElementById('how-to-play-btn');
+const profileBtn = document.getElementById('profile-btn');
+const shopBtn = document.getElementById('shop-btn');
+
+const gameContainer = document.getElementById('game-container');
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const scoreElement = document.getElementById('score');
+const topPlayersList = document.getElementById('top-players');
+const fullLeaderboard = document.getElementById('full-leaderboard');
+
+const gameOverElement = document.getElementById('game-over');
+const finalScoreElement = document.getElementById('final-score');
+const restartBtn = document.getElementById('restart-btn');
+const menuBtn = document.getElementById('menu-btn');
+
+// Модальные окна
 const profileModal = document.getElementById('profile-modal');
 const howToPlayModal = document.getElementById('how-to-play-modal');
 const leaderboardModal = document.getElementById('leaderboard-modal');
-const shopModal = document.getElementById('shop-modal'); // Добавленная строка
-        // Добавьте в раздел инициализации
-const shopBtn = document.getElementById('shop-btn');
 const shopModal = document.getElementById('shop-modal');
-shopBtn.addEventListener('click', showShopModal);
+
+// Элементы профиля
+const profileNameInput = document.getElementById('profile-name-input');
+const profileIdSpan = document.getElementById('profile-id');
+const profileSaveBtn = document.getElementById('profile-save-btn');
+const refreshLeaderboardBtn = document.getElementById('refresh-leaderboard');
+const closeLeaderboardBtn = document.getElementById('close-leaderboard');
+const closeHowToPlayBtn = document.getElementById('close-how-to-play');
+
+// ========== НАСТРОЙКИ ИГРЫ ==========
+const gridSize = 20;
+let snake = [];
+let food = {};
+let direction = 'none';
+let nextDirection = 'none';
+let score = 0;
+let gameSpeed = 150;
+let gameLoop;
+let gameActive = false;
+let refreshInterval;
+
+// Текущий пользователь
+let currentUser = {
+    id: null,
+    display_name: 'Гость'
+};
+
+// Настройки профиля
+let userSettings = {
+    avatar: 1,
+    background: 1,
+    snakeSkin: 1,
+    coins: 0,
+    unlockedAvatars: [1],
+    unlockedBackgrounds: [1],
+    unlockedSkins: [1]
+};
 
 // Цены на предметы
 const shopItems = {
@@ -762,6 +713,9 @@ const shopItems = {
         { id: 6, price: 300, name: "Бирюзовый" }
     ]
 };
+
+// Обработчики событий
+shopBtn.addEventListener('click', showShopModal);
         
         // Элементы профиля
         const profileNameInput = document.getElementById('profile-name-input');
