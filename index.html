@@ -948,6 +948,7 @@ async function updateProfile() {
     playBtn.addEventListener('click', startGame);
     leaderboardBtn.addEventListener('click', showFullLeaderboard);
     howToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'flex');
+    document.getElementById('shop-btn').addEventListener('click', () => shopModal.style.display = 'flex'); // Добавленная строка
     profileBtn.addEventListener('click', showProfileModal);
     
     // Обработчики закрытия модальных окон
