@@ -1267,23 +1267,23 @@ function applyProfileSettings() {
     gameOverElement.style.display = 'flex';
     gameActive = false;
     
-    // Сохранение результата
+    // Сохранение результата и начисление монет
     if (currentUser.id && !currentUser.id.startsWith('local_') && score > 0) {
         await saveScore();
-        await loadLeaderboard(topPlayersList, 5);
-    }
-    
-    // Добавляем обработчик для кнопки "Играть снова"
-    restartBtn.onclick = startGame;
-}
-        if (currentUser.id && !currentUser.id.startsWith('local_') 
+        
+        // Начисление монет (1 монета за каждые 100 очков)
         const earnedCoins = Math.floor(score / 100);
         if (earnedCoins > 0) {
             userSettings.coins += earnedCoins;
             await db.ref(`userSettings/${currentUser.id}/coins`).set(userSettings.coins);
             showToast(`Получено ${earnedCoins} монет! Всего: ${userSettings.coins}`);
         }
+        
+        await loadLeaderboard(topPlayersList, 5);
     }
+    
+    // Добавляем обработчик для кнопки "Играть снова"
+    restartBtn.onclick = startGame;
 }
                 
         function startGame() {
