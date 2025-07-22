@@ -483,36 +483,33 @@
     <button id="profile-btn" class="menu-btn" style="margin-top: 20px;">Профиль</button>
 </div>
 
-<!-- Добавить модальное окно магазина -->
 <!-- Модальное окно магазина -->
 <div id="shop-modal" class="modal">
     <div class="modal-content">
         <button class="close-modal-btn">&times;</button>
         <h2>Магазин</h2>
+        <div id="shop-tabs">
+            <button class="shop-tab active" data-tab="avatars">Аватары</button>
+            <button class="shop-tab" data-tab="backgrounds">Фоны</button>
+            <button class="shop-tab" data-tab="snakeSkins">Скины змейки</button>
+        </div>
         <div id="shop-content">
-            <div class="coins-display">
-                <span>Ваши монеты:</span>
-                <span id="coins-amount">0</span>
+            <div id="shop-avatars" class="shop-tab-content active">
+                <div class="shop-items-grid" id="avatars-grid"></div>
             </div>
-            
-            <div class="shop-section">
-                <h3>Аватары</h3>
-                <div class="shop-grid" id="avatars-shop"></div>
+            <div id="shop-backgrounds" class="shop-tab-content">
+                <div class="shop-items-grid" id="backgrounds-grid"></div>
             </div>
-            
-            <div class="shop-section">
-                <h3>Фоны</h3>
-                <div class="shop-grid" id="backgrounds-shop"></div>
+            <div id="shop-snake-skins" class="shop-tab-content">
+                <div class="shop-items-grid" id="snake-skins-grid"></div>
             </div>
-            
-            <div class="shop-section">
-                <h3>Скины для змейки</h3>
-                <div class="shop-grid" id="skins-shop"></div>
-            </div>
+        </div>
+        <div class="shop-balance">
+            <span>Ваши монеты: </span>
+            <span id="coins-amount">0</span>
         </div>
     </div>
 </div>
-    </div>
     
     
     <!-- Игровое поле -->
@@ -660,28 +657,28 @@ const closeHowToPlayBtn = document.getElementById('close-how-to-play');
 // Цены на предметы
 const shopItems = {
     avatars: [
-        { id: 1, price: 0, name: "Зеленый" },
-        { id: 2, price: 100, name: "Синий" },
-        { id: 3, price: 150, name: "Фиолетовый" },
-        { id: 4, price: 200, name: "Оранжевый" },
-        { id: 5, price: 250, name: "Розовый" },
-        { id: 6, price: 300, name: "Бирюзовый" }
+        { id: 1, name: "Зеленый", price: 0, unlocked: true },
+        { id: 2, name: "Синий", price: 100 },
+        { id: 3, name: "Фиолетовый", price: 150 },
+        { id: 4, name: "Оранжевый", price: 200 },
+        { id: 5, name: "Розовый", price: 250 },
+        { id: 6, name: "Бирюзовый", price: 300 }
     ],
     backgrounds: [
-        { id: 1, price: 0, name: "Зеленый градиент" },
-        { id: 2, price: 150, name: "Синий градиент" },
-        { id: 3, price: 200, name: "Фиолетовый градиент" },
-        { id: 4, price: 250, name: "Оранжевый градиент" },
-        { id: 5, price: 300, name: "Серый градиент" },
-        { id: 6, price: 350, name: "Коричневый градиент" }
+        { id: 1, name: "Зеленый градиент", price: 0, unlocked: true },
+        { id: 2, name: "Синий градиент", price: 150 },
+        { id: 3, name: "Фиолетовый градиент", price: 200 },
+        { id: 4, name: "Оранжевый градиент", price: 250 },
+        { id: 5, name: "Серый градиент", price: 300 },
+        { id: 6, name: "Коричневый градиент", price: 350 }
     ],
-    skins: [
-        { id: 1, price: 0, name: "Зеленый" },
-        { id: 2, price: 100, name: "Синий" },
-        { id: 3, price: 150, name: "Фиолетовый" },
-        { id: 4, price: 200, name: "Оранжевый" },
-        { id: 5, price: 250, name: "Розовый" },
-        { id: 6, price: 300, name: "Бирюзовый" }
+    snakeSkins: [
+        { id: 1, name: "Зеленая змейка", price: 0, unlocked: true },
+        { id: 2, name: "Синяя змейка", price: 100 },
+        { id: 3, name: "Фиолетовая змейка", price: 150 },
+        { id: 4, name: "Оранжевая змейка", price: 200 },
+        { id: 5, name: "Розовая змейка", price: 250 },
+        { id: 6, name: "Бирюзовая змейка", price: 300 }
     ]
 };
 
@@ -713,10 +710,12 @@ let userSettings = {
     avatar: 1,
     background: 1,
     snakeSkin: 1,
-    coins: 0, // Начальное количество монет
-    unlockedAvatars: [1], // По умолчанию разблокирован только первый аватар
-    unlockedBackgrounds: [1], // По умолчанию разблокирован только первый фон
-    unlockedSkins: [1] // По умолчанию разблокирован только первый скин змейки
+    coins: 0, // Валюта для покупок
+    inventory: {
+        avatars: [1], // Купленные аватары (по умолчанию первый)
+        backgrounds: [1], // Купленные фоны
+        snakeSkins: [1] // Купленные скины змейки
+    }
 };
 
 // Загрузка настроек профиля
