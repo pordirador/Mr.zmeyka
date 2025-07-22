@@ -1300,10 +1300,8 @@ function selectSnakeSkin(e) {
 
     
     // Фоны - показываем только разблокированные
-    document.querySelectorAll('.background-option').forEach(el => {
         const bgId = parseInt(el.dataset.bg);
         el.style.display = userSettings.unlockedBackgrounds.includes(bgId) ? 'block' : 'none';
-        el.classList.toggle('selected', userSettings.background === bgId);
     });
     
     // Скины змейки - показываем только разблокированные
