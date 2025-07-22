@@ -493,13 +493,13 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
 </div>
     <!-- Главное меню -->
     <div id="main-menu">
-        <h1>Змейка</h1>
-        <button id="play-btn" class="menu-btn">Играть</button>
-        <button id="leaderboard-btn" class="menu-btn">Таблица рекордов</button>
-        <button id="how-to-play-btn" class="menu-btn">Как играть</button>
-        <button id="profile-btn" class="menu-btn" style="margin-top: 20px;">Профиль</button>
-        <!-- Добавить в main-menu -->
-<button id="shop-btn" class="menu-btn">Магазин</button>
+    <h1>Змейка</h1>
+    <button id="play-btn" class="menu-btn">Играть</button>
+    <button id="leaderboard-btn" class="menu-btn">Таблица рекордов</button>
+    <button id="how-to-play-btn" class="menu-btn">Как играть</button>
+    <button id="shop-btn" class="menu-btn">Магазин</button> <!-- Добавленная кнопка -->
+    <button id="profile-btn" class="menu-btn" style="margin-top: 20px;">Профиль</button>
+</div>
 
 <!-- Добавить модальное окно магазина -->
 <div id="shop-modal" class="modal">
@@ -645,9 +645,11 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
         const menuBtn = document.getElementById('menu-btn');
         
         // Модальные окна
-        const profileModal = document.getElementById('profile-modal');
-        const howToPlayModal = document.getElementById('how-to-play-modal');
-        const leaderboardModal = document.getElementById('leaderboard-modal');
+        // Модальные окна
+const profileModal = document.getElementById('profile-modal');
+const howToPlayModal = document.getElementById('how-to-play-modal');
+const leaderboardModal = document.getElementById('leaderboard-modal');
+const shopModal = document.getElementById('shop-modal'); // Добавленная строка
         
         // Элементы профиля
         const profileNameInput = document.getElementById('profile-name-input');
