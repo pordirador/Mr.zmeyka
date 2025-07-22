@@ -849,7 +849,9 @@ function applyProfileSettings() {
     document.querySelector(`.avatar-option[data-avatar="${userSettings.avatar}"]`).classList.add('selected');
     document.querySelector(`.background-option[data-bg="${userSettings.background}"]`).classList.add('selected');
     document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"]`).classList.add('selected');
-    
+
+    applyProfileSettings();
+
     // Показываем только модальное окно
     profileModal.style.display = 'flex';
 }
@@ -949,31 +951,23 @@ document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"
     ctx.fillStyle = '#222';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Отрисовка змейки с учетом скина
+    // Цвета для змейки в зависимости от выбранного скина
+    const colors = [
+        ['#4CAF50', '#8BC34A'], // зеленый
+        ['#2196F3', '#03A9F4'], // синий
+        ['#9C27B0', '#E91E63'], // фиолетовый
+        ['#FF9800', '#FFC107'], // оранжевый
+        ['#E91E63', '#F06292'], // розовый
+        ['#00BCD4', '#80DEEA']  // бирюзовый
+    ];
+    
+    const skinIndex = (userSettings.snakeSkin || 1) - 1;
+    const headColor = colors[skinIndex][0];
+    const bodyColor = colors[skinIndex][1];
+    
+    // Отрисовка змейки
     snake.forEach((segment, index) => {
-        // Получаем цвет из настроек
-        let color;
-        // Замените switch-case на более простой вариант:
-const colors = [
-    ['#4CAF50', '#8BC34A'], // зеленый
-    ['#2196F3', '#03A9F4'], // синий
-    ['#9C27B0', '#E91E63'], // фиолетовый
-    ['#FF9800', '#FFC107'], // оранжевый
-    ['#E91E63', '#F06292'], // розовый
-    ['#00BCD4', '#80DEEA']  // бирюзовый
-];
-
-const skinIndex = (userSettings.snakeSkin || 1) - 1;
-const headColor = colors[skinIndex][0];
-const bodyColor = colors[skinIndex][1];
-
-// Отрисовка змейки
-snake.forEach((segment, index) => {
-    ctx.fillStyle = index === 0 ? headColor : bodyColor;
-    ctx.fillRect(segment.x, segment.y, gridSize - 1, gridSize - 1);
-});
-        
-        ctx.fillStyle = color;
+        ctx.fillStyle = index === 0 ? headColor : bodyColor;
         ctx.fillRect(segment.x, segment.y, gridSize - 1, gridSize - 1);
     });
     
@@ -1193,22 +1187,31 @@ snake.forEach((segment, index) => {
 
         async function updateProfile() {
     const newName = profileNameInput.value.trim();
-    if (!newName) {
-        showToast('Введите имя');
-        return;
-    }
-    
-    if (newName.length < 2 || newName.length > 20) {
-        showToast('Имя должно быть от 2 до 20 символов');
+    if (newName.length < 2) {
+        showToast('Имя слишком короткое');
         return;
     }
     
     try {
-        // Обновляем имя в профиле и настройки
+        // Сохраняем настройки
+        await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
+        
+        // Обновляем имя
         await db.ref(`users/${currentUser.id}`).update({
-            display_name: newName,
-            last_login: firebase.database.ServerValue.TIMESTAMP
+            display_name: newName
         });
+        
+        currentUser.display_name = newName;
+        updateProfileButton();
+        profileModal.style.display = 'none';
+        showToast('Настройки сохранены!');
+        
+        // Применяем изменения
+        applyProfileSettings();
+    } catch (error) {
+        showToast('Ошибка сохранения');
+    }
+}
         
         // Сохраняем настройки
         await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
