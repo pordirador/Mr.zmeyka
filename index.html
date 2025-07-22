@@ -751,15 +751,13 @@ async function updateProfile() {
         });
     });
     
-    // Обновление таблицы лидеров
-    refreshLeaderboardBtn.addEventListener('click', () => loadLeaderboard(fullLeaderboard, null));
-    
     // Игровые кнопки
     restartBtn.addEventListener('click', startGame);
     menuBtn.addEventListener('click', returnToMenu);
     
     // Профиль
     profileSaveBtn.addEventListener('click', updateProfile);
+    setupAvatarSelection();
     setupProfileOptions();
     
     // Инициализация размеров canvas
@@ -771,17 +769,14 @@ async function updateProfile() {
         if (snap.val() === true) {
             console.log("Connected to Firebase");
             identifyUser().then(() => {
-                // Загружаем настройки после идентификации пользователя
                 loadProfileSettings().then(() => {
                     applyProfileBackground();
-                    // Загружаем таблицу лидеров после применения настроек
                     loadLeaderboard(topPlayersList, 5);
                 });
             });
         } else {
             console.log("Disconnected from Firebase");
             setupOfflineUser();
-            // Устанавливаем настройки по умолчанию для оффлайн-режима
             userSettings = { avatar: 1, background: 1, snakeSkin: 1 };
             applyProfileBackground();
         }
