@@ -1043,6 +1043,18 @@ document.getElementById('shop-btn').addEventListener('click', () => {
     document.getElementById('coins-amount').textContent = userSettings.coins;
     shopModal.style.display = 'flex';
 });
+        // Обработчики вкладок магазина
+document.querySelectorAll('.shop-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        // Убираем активный класс у всех вкладок
+        document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.shop-tab-content').forEach(c => c.classList.remove('active'));
+        
+        // Добавляем активный класс текущей вкладке
+        tab.classList.add('active');
+        document.getElementById(`shop-${tab.dataset.tab}`).classList.add('active');
+    });
+});
 
             
         // ========== ФУНКЦИИ ИНТЕРФЕЙСА ==========
@@ -1098,16 +1110,61 @@ function applyProfileSettings() {
     if (!userSettings.background) userSettings.background = 1;
     if (!userSettings.snakeSkin) userSettings.snakeSkin = 1;
     
-    // Сбрасываем выделения
-    document.querySelectorAll('.avatar-option, .background-option, .snake-skin-option')
-        .forEach(el => el.classList.remove('selected'));
+    // Очищаем все варианты
+    document.querySelectorAll('.avatar-grid, .background-grid, .snake-skin-grid')
+        .forEach(grid => grid.innerHTML = '');
     
-    // Выделяем текущие настройки
-    document.querySelector(`.avatar-option[data-avatar="${userSettings.avatar}"]`)?.classList.add('selected');
-    document.querySelector(`.background-option[data-bg="${userSettings.background}"]`)?.classList.add('selected');
-    document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"]`)?.classList.add('selected');
+    // Показываем только купленные аватары
+    userSettings.inventory.avatars.forEach(avatarId => {
+        const option = document.createElement('div');
+        option.className = `avatar-option ${userSettings.avatar === avatarId ? 'selected' : ''}`;
+        option.dataset.avatar = avatarId;
+        option.textContent = avatarId;
+        option.style.background = getAvatarColor(avatarId);
+        option.addEventListener('click', selectAvatar);
+        document.querySelector('.avatar-grid').appendChild(option);
+    });
+    
+    // Показываем только купленные фоны
+    userSettings.inventory.backgrounds.forEach(bgId => {
+        const option = document.createElement('div');
+        option.className = `background-option profile-bg-${bgId} ${userSettings.background === bgId ? 'selected' : ''}`;
+        option.dataset.bg = bgId;
+        option.addEventListener('click', selectBackground);
+        document.querySelector('.background-grid').appendChild(option);
+    });
+    
+    // Показываем только купленные скины змейки
+    userSettings.inventory.snakeSkins.forEach(skinId => {
+        const option = document.createElement('div');
+        option.className = `snake-skin-option snake-color-${skinId} ${userSettings.snakeSkin === skinId ? 'selected' : ''}`;
+        option.dataset.skin = skinId;
+        option.addEventListener('click', selectSnakeSkin);
+        document.querySelector('.snake-skin-grid').appendChild(option);
+    });
     
     profileModal.style.display = 'flex';
+}
+
+// Функции выбора в профиле
+function selectAvatar(e) {
+    document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
+    e.target.classList.add('selected');
+    userSettings.avatar = parseInt(e.target.dataset.avatar);
+}
+
+function selectBackground(e) {
+    document.querySelectorAll('.background-option').forEach(el => el.classList.remove('selected'));
+    e.target.classList.add('selected');
+    userSettings.background = parseInt(e.target.dataset.bg);
+    applyProfileBackground();
+}
+
+function selectSnakeSkin(e) {
+    document.querySelectorAll('.snake-skin-option').forEach(el => el.classList.remove('selected'));
+    e.target.classList.add('selected');
+    userSettings.snakeSkin = parseInt(e.target.dataset.skin);
+    if (gameActive) draw(); // Перерисовываем змейку, если игра активна
 }
         
         function showFullLeaderboard() {
@@ -1779,6 +1836,130 @@ function handleShopItemClick(item, category, settingType) {
     } else {
         showToast(`Недостаточно монет. Нужно ещё ${item.price - userSettings.coins}`);
     }
+}
+        // Функция для открытия магазина
+function openShop() {
+    if (!currentUser.id) {
+        showToast('Нужно подключение к интернету');
+        return;
+    }
+    
+    // Обновляем баланс перед показом
+    document.getElementById('coins-amount').textContent = userSettings.coins || 0;
+    
+    // Загружаем товары
+    loadShopItems('avatars');
+    loadShopItems('backgrounds');
+    loadShopItems('snakeSkins');
+    
+    // Показываем модальное окно
+    document.getElementById('shop-modal').style.display = 'flex';
+}
+
+// Функция загрузки товаров в магазин
+function loadShopItems(category) {
+    const container = document.getElementById(`${category}-grid`);
+    container.innerHTML = '';
+    
+    shopItems[category].forEach(item => {
+        const isOwned = userSettings.inventory[category].includes(item.id);
+        const isSelected = userSettings[category === 'snakeSkins' ? 'snakeSkin' : category] === item.id;
+        
+        const itemElement = document.createElement('div');
+        itemElement.className = `shop-item ${isOwned ? 'owned' : ''} ${isSelected ? 'selected' : ''}`;
+        itemElement.dataset.id = item.id;
+        itemElement.dataset.category = category;
+        
+        // Для аватаров используем цветной круг, для фонов - градиент
+        let imageHTML = '';
+        if (category === 'avatars') {
+            imageHTML = `<div class="item-image" style="background: ${getAvatarColor(item.id)}"></div>`;
+        } else if (category === 'backgrounds') {
+            imageHTML = `<div class="item-image" style="background: ${getBackgroundStyle(item.id)}"></div>`;
+        } else {
+            imageHTML = `<div class="item-image" style="background: ${getSnakeSkinColor(item.id)}"></div>`;
+        }
+        
+        itemElement.innerHTML = `
+            ${imageHTML}
+            <div class="item-name">${item.name}</div>
+            <div class="item-price">${isOwned ? 'Куплено' : `${item.price} монет`}</div>
+        `;
+        
+        itemElement.addEventListener('click', () => handleShopItemClick(category, item.id, item.price, isOwned));
+        container.appendChild(itemElement);
+    });
+}
+
+// Обработчик клика на товар в магазине
+function handleShopItemClick(category, itemId, price, isOwned) {
+    if (isOwned) {
+        // Если товар уже куплен - выбираем его
+        userSettings[category === 'snakeSkins' ? 'snakeSkin' : category] = itemId;
+        saveProfileSettings();
+        loadShopItems(category); // Обновляем вид
+        showToast('Стиль применен!');
+    } else {
+        // Пытаемся купить товар
+        if (confirm(`Купить этот предмет за ${price} монет?`)) {
+            buyItem(category, itemId, price);
+        }
+    }
+}
+
+// Функция покупки товара
+function buyItem(category, itemId, price) {
+    if (userSettings.coins < price) {
+        showToast('Недостаточно монет!');
+        return;
+    }
+    
+    // Вычитаем цену
+    userSettings.coins -= price;
+    
+    // Добавляем в инвентарь
+    userSettings.inventory[category].push(itemId);
+    
+    // Выбираем купленный товар
+    userSettings[category === 'snakeSkins' ? 'snakeSkin' : category] = itemId;
+    
+    // Сохраняем
+    saveProfileSettings().then(() => {
+        // Обновляем интерфейс
+        document.getElementById('coins-amount').textContent = userSettings.coins;
+        loadShopItems(category);
+        showToast('Покупка успешна!');
+        
+        // Применяем изменения
+        if (category === 'backgrounds') {
+            applyProfileBackground();
+        } else if (gameActive && category === 'snakeSkins') {
+            draw(); // Перерисовываем змейку
+        }
+    });
+}
+
+// Вспомогательные функции для стилей
+function getAvatarColor(avatarId) {
+    const colors = ['#4CAF50', '#2196F3', '#9C27B0', '#FF9800', '#E91E63', '#00BCD4'];
+    return colors[(avatarId - 1) % colors.length];
+}
+
+function getBackgroundStyle(bgId) {
+    const gradients = [
+        'linear-gradient(135deg, #4CAF50, #8BC34A)',
+        'linear-gradient(135deg, #2196F3, #03A9F4)',
+        'linear-gradient(135deg, #9C27B0, #E91E63)',
+        'linear-gradient(135deg, #FF9800, #FFC107)',
+        'linear-gradient(135deg, #607D8B, #9E9E9E)',
+        'linear-gradient(135deg, #795548, #3E2723)'
+    ];
+    return gradients[(bgId - 1) % gradients.length];
+}
+
+function getSnakeSkinColor(skinId) {
+    const colors = ['#4CAF50', '#2196F3', '#9C27B0', '#FF9800', '#E91E63', '#00BCD4'];
+    return colors[(skinId - 1) % colors.length];
 }
 
 
