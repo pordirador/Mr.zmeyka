@@ -1296,20 +1296,10 @@ function selectSnakeSkin(e) {
     ctx.beginPath();
     ctx.arc(food.x + gridSize/2, food.y + gridSize/2, gridSize/2 - 1, 0, Math.PI * 2);
     ctx.fill();
-}
+
 
     
-    // Фоны - показываем только разблокированные
-        const bgId = parseInt(el.dataset.bg);
-        el.style.display = userSettings.unlockedBackgrounds.includes(bgId) ? 'block' : 'none';
     
-    
-    // Скины змейки - показываем только разблокированные
-    document.querySelectorAll('.snake-skin-option').forEach(el => {
-        const skinId = parseInt(el.dataset.skin);
-        el.style.display = userSettings.unlockedSkins.includes(skinId) ? 'block' : 'none';
-        el.classList.toggle('selected', userSettings.snakeSkin === skinId);
-    });
     
     // Применяем выбранный фон
     applyProfileBackground();
