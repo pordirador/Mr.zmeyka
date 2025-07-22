@@ -878,16 +878,27 @@ function applyProfileSettings() {
         }
         
         function returnToMenu() {
-    mainMenu.style.display = "block";
-    document.getElementById("leaderboard").style.display = "none"; // Скрываем таблицу
-    gameContainer.style.display = 'none';
+    // Сбрасываем игровое состояние
     clearInterval(gameLoop);
     clearInterval(refreshInterval);
+    snake = [];
+    food = {};
     direction = 'none';
     nextDirection = 'none';
+    score = 0;
+    gameActive = false;
     
-    // Скрываем таблицу рекордов в главном меню
+    // Обновляем интерфейс
+    mainMenu.style.display = "block";
+    gameContainer.style.display = "none";
+    gameOverElement.style.display = "none";
     document.getElementById('leaderboard').style.display = 'none';
+    
+    // Очищаем canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Сбрасываем счет
+    scoreElement.textContent = "0";
 }
         function applyProfileBackground() {
     // Удаляем все классы фона
@@ -1057,19 +1068,21 @@ function applyProfileSettings() {
 }
         
         function startGame() {
-    mainMenu.style.display = "none";
-    gameContainer.style.display = "block";
-    document.getElementById("leaderboard").style.display = "none"; // Скрываем таблицу
-    
-    // Скрываем таблицу рекордов во время игры
-    document.getElementById('leaderboard').style.display = 'none';
-    
-    score = 0;
-    scoreElement.textContent = score;
-    gameSpeed = 150;
+    // Сбрасываем игровое состояние
+    snake = [];
+    food = {};
     direction = 'none';
     nextDirection = 'none';
+    score = 0;
+    gameSpeed = 150;
     gameActive = true;
+    
+    // Обновляем интерфейс
+    mainMenu.style.display = "none";
+    gameContainer.style.display = "block";
+    gameOverElement.style.display = "none";
+    document.getElementById('leaderboard').style.display = 'none';
+    scoreElement.textContent = score;
     
     // Инициализация игровых элементов
     resizeCanvas();
