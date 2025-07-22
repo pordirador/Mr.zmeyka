@@ -825,8 +825,10 @@ async function saveProfileSettings() {
     
     try {
         await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
+        showToast('Настройки сохранены!');
     } catch (error) {
         console.error('Ошибка сохранения настроек:', error);
+        showToast('Ошибка сохранения');
     }
 }
 
