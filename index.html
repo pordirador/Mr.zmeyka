@@ -1041,17 +1041,20 @@ function applyProfileSettings() {
         }
         
         async function gameOver() {
-            clearInterval(gameLoop);
-            finalScoreElement.textContent = `Счёт: ${score}`;
-            gameOverElement.style.display = 'flex';
-            gameActive = false;
-            
-            // Сохранение результата
-            if (currentUser.id && !currentUser.id.startsWith('local_') && score > 0) {
-                await saveScore();
-                await loadLeaderboard(topPlayersList, 5);
-            }
-        }
+    clearInterval(gameLoop);
+    finalScoreElement.textContent = `Счёт: ${score}`;
+    gameOverElement.style.display = 'flex';
+    gameActive = false;
+    
+    // Сохранение результата
+    if (currentUser.id && !currentUser.id.startsWith('local_') && score > 0) {
+        await saveScore();
+        await loadLeaderboard(topPlayersList, 5);
+    }
+    
+    // Добавляем обработчик для кнопки "Играть снова"
+    restartBtn.onclick = startGame;
+}
         
         function startGame() {
     mainMenu.style.display = "none";
