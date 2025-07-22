@@ -475,7 +475,70 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
 .close-modal-btn:hover {
     color: #333;
 }
+/* Стили для магазина */
+.coins-display {
+    background: #FFD700;
+    color: #333;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 20px;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
 
+.shop-section {
+    margin-bottom: 20px;
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 10px;
+}
+
+.shop-section h3 {
+    margin-bottom: 10px;
+    color: #4CAF50;
+}
+
+.shop-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.shop-item {
+    aspect-ratio: 1/1;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid #ddd;
+}
+
+.shop-item.locked {
+    filter: grayscale(80%);
+    opacity: 0.7;
+}
+
+.shop-item-price {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    text-align: center;
+    padding: 5px;
+    font-size: 0.8rem;
+}
+
+.shop-item.unlocked .shop-item-price {
+    background: rgba(76, 175, 80, 0.8);
+}
+
+.shop-item.selected {
+    border-color: #4CAF50;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
 /* Стили для аватаров */
 .avatar-option {
     display: flex;
@@ -498,20 +561,36 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
     <button id="play-btn" class="menu-btn">Играть</button>
     <button id="leaderboard-btn" class="menu-btn">Таблица рекордов</button>
     <button id="how-to-play-btn" class="menu-btn">Как играть</button>
-    <button id="shop-btn" class="menu-btn">Магазин</button> <!-- Добавленная кнопка -->
+    <button id="shop-btn" class="menu-btn" style="margin-top: 10px;">Магазин</button>
     <button id="profile-btn" class="menu-btn" style="margin-top: 20px;">Профиль</button>
 </div>
 
 <!-- Добавить модальное окно магазина -->
+<!-- Модальное окно магазина -->
 <div id="shop-modal" class="modal">
     <div class="modal-content">
         <button class="close-modal-btn">&times;</button>
         <h2>Магазин</h2>
-        <div class="coins-display">Монеты: <span id="coins-amount">0</span></div>
-        
         <div id="shop-content">
-            <!-- Тут будут те же секции, что и в профиле -->
-            <!-- Но с кнопками покупки и информацией о разблокировке -->
+            <div class="coins-display">
+                <span>Ваши монеты:</span>
+                <span id="coins-amount">0</span>
+            </div>
+            
+            <div class="shop-section">
+                <h3>Аватары</h3>
+                <div class="shop-grid" id="avatars-shop"></div>
+            </div>
+            
+            <div class="shop-section">
+                <h3>Фоны</h3>
+                <div class="shop-grid" id="backgrounds-shop"></div>
+            </div>
+            
+            <div class="shop-section">
+                <h3>Скины для змейки</h3>
+                <div class="shop-grid" id="skins-shop"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -605,7 +684,7 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
             <button id="close-leaderboard" class="menu-btn">Закрыть</button>
         </div>
     </div>
-
+    
     <script>
         // ========== ИНИЦИАЛИЗАЦИЯ FIREBASE ==========
         const firebaseConfig = {
@@ -651,6 +730,38 @@ const profileModal = document.getElementById('profile-modal');
 const howToPlayModal = document.getElementById('how-to-play-modal');
 const leaderboardModal = document.getElementById('leaderboard-modal');
 const shopModal = document.getElementById('shop-modal'); // Добавленная строка
+        // Добавьте в раздел инициализации
+const shopBtn = document.getElementById('shop-btn');
+const shopModal = document.getElementById('shop-modal');
+shopBtn.addEventListener('click', showShopModal);
+
+// Цены на предметы
+const shopItems = {
+    avatars: [
+        { id: 1, price: 0, name: "Зеленый" },
+        { id: 2, price: 100, name: "Синий" },
+        { id: 3, price: 150, name: "Фиолетовый" },
+        { id: 4, price: 200, name: "Оранжевый" },
+        { id: 5, price: 250, name: "Розовый" },
+        { id: 6, price: 300, name: "Бирюзовый" }
+    ],
+    backgrounds: [
+        { id: 1, price: 0, name: "Зеленый градиент" },
+        { id: 2, price: 150, name: "Синий градиент" },
+        { id: 3, price: 200, name: "Фиолетовый градиент" },
+        { id: 4, price: 250, name: "Оранжевый градиент" },
+        { id: 5, price: 300, name: "Серый градиент" },
+        { id: 6, price: 350, name: "Коричневый градиент" }
+    ],
+    skins: [
+        { id: 1, price: 0, name: "Зеленый" },
+        { id: 2, price: 100, name: "Синий" },
+        { id: 3, price: 150, name: "Фиолетовый" },
+        { id: 4, price: 200, name: "Оранжевый" },
+        { id: 5, price: 250, name: "Розовый" },
+        { id: 6, price: 300, name: "Бирюзовый" }
+    ]
+};
         
         // Элементы профиля
         const profileNameInput = document.getElementById('profile-name-input');
@@ -659,6 +770,7 @@ const shopModal = document.getElementById('shop-modal'); // Добавленна
         const refreshLeaderboardBtn = document.getElementById('refresh-leaderboard');
         const closeLeaderboardBtn = document.getElementById('close-leaderboard');
         const closeHowToPlayBtn = document.getElementById('close-how-to-play');
+        
         
         // ========== НАСТРОЙКИ ИГРЫ ==========
         const gridSize = 20;
@@ -679,16 +791,16 @@ const shopModal = document.getElementById('shop-modal'); // Добавленна
             display_name: 'Гость'
         };
         // Настройки профиля
+// В разделе с настройками профиля добавьте:
 let userSettings = {
     avatar: 1,
     background: 1,
     snakeSkin: 1,
-    coins: 0, // Добавляем поле для монет
-    unlockedItems: { // Разблокированные предметы
-        avatars: [1], // По умолчанию первый аватар разблокирован
-        backgrounds: [1],
-        snakeSkins: [1]
-    }
+    coins: 0, // Начальное количество монет
+    unlockedAvatars: [1], // По умолчанию разблокирован только первый аватар
+    unlockedBackgrounds: [1], // По умолчанию разблокирован только первый фон
+    unlockedSkins: [1] // По умолчанию разблокирован только первый скин змейки
+};
 };
 
 // Загрузка настроек профиля
@@ -698,7 +810,16 @@ async function loadProfileSettings() {
     try {
         const snapshot = await db.ref(`userSettings/${currentUser.id}`).once('value');
         if (snapshot.exists()) {
-            userSettings = snapshot.val();
+            const data = snapshot.val();
+            userSettings = {
+                avatar: data.avatar || 1,
+                background: data.background || 1,
+                snakeSkin: data.snakeSkin || 1,
+                coins: data.coins || 0,
+                unlockedAvatars: data.unlockedAvatars || [1],
+                unlockedBackgrounds: data.unlockedBackgrounds || [1],
+                unlockedSkins: data.unlockedSkins || [1]
+            };
             applyProfileSettings();
         }
     } catch (error) {
@@ -1203,11 +1324,30 @@ function applyProfileSettings() {
     ctx.fill();
 }
 
-        function applyAllProfileSettings() {
-    applyProfileSettings();
+        function applyProfileSettings() {
+    // Аватары - показываем только разблокированные
+    document.querySelectorAll('.avatar-option').forEach(el => {
+        const avatarId = parseInt(el.dataset.avatar);
+        el.style.display = userSettings.unlockedAvatars.includes(avatarId) ? 'flex' : 'none';
+        el.classList.toggle('selected', userSettings.avatar === avatarId);
+    });
+    
+    // Фоны - показываем только разблокированные
+    document.querySelectorAll('.background-option').forEach(el => {
+        const bgId = parseInt(el.dataset.bg);
+        el.style.display = userSettings.unlockedBackgrounds.includes(bgId) ? 'block' : 'none';
+        el.classList.toggle('selected', userSettings.background === bgId);
+    });
+    
+    // Скины змейки - показываем только разблокированные
+    document.querySelectorAll('.snake-skin-option').forEach(el => {
+        const skinId = parseInt(el.dataset.skin);
+        el.style.display = userSettings.unlockedSkins.includes(skinId) ? 'block' : 'none';
+        el.classList.toggle('selected', userSettings.snakeSkin === skinId);
+    });
+    
+    // Применяем выбранный фон
     applyProfileBackground();
-    // Перерисовываем змейку, если игра активна
-    if (gameActive) draw();
 }
         
         function update() {
@@ -1271,23 +1411,19 @@ function applyProfileSettings() {
     gameOverElement.style.display = 'flex';
     gameActive = false;
     
-    // Сохранение результата и начисление монет
-    if (currentUser.id && !currentUser.id.startsWith('local_') && score > 0) {
-        await saveScore();
-        
-        // Начисление монет (1 монета за каждые 100 очков)
-        const earnedCoins = Math.floor(score / 100);
-        if (earnedCoins > 0) {
-            userSettings.coins += earnedCoins;
-            await db.ref(`userSettings/${currentUser.id}/coins`).set(userSettings.coins);
-            showToast(`Получено ${earnedCoins} монет! Всего: ${userSettings.coins}`);
-        }
-        
-        await loadLeaderboard(topPlayersList, 5);
+    // Начисляем монеты (1 монета за каждые 10 очков)
+    const coinsEarned = Math.floor(score / 10);
+    if (coinsEarned > 0 && currentUser.id && !currentUser.id.startsWith('local_')) {
+        userSettings.coins = (userSettings.coins || 0) + coinsEarned;
+        await saveProfileSettings();
+        showToast(`Вы заработали ${coinsEarned} монет!`);
     }
     
-    // Добавляем обработчик для кнопки "Играть снова"
-    restartBtn.onclick = startGame;
+    // Сохранение результата
+    if (currentUser.id && !currentUser.id.startsWith('local_') && score > 0) {
+        await saveScore();
+        await loadLeaderboard(topPlayersList, 5);
+    }
 }
                 
         function startGame() {
@@ -1645,6 +1781,91 @@ function getAvatarColor(avatarNum) {
     }
     return true;
 }
+        function showShopModal() {
+    if (!currentUser.id) {
+        showToast('Нужно подключение к интернету');
+        return;
+    }
+    
+    document.getElementById('coins-amount').textContent = userSettings.coins || 0;
+    renderShopItems('avatars-shop', 'avatars', 'avatar');
+    renderShopItems('backgrounds-shop', 'backgrounds', 'background');
+    renderShopItems('skins-shop', 'skins', 'snakeSkin');
+    shopModal.style.display = 'flex';
+}
+
+// Отрисовка предметов в магазине
+function renderShopItems(containerId, category, settingType) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    
+    shopItems[category].forEach(item => {
+        const isUnlocked = userSettings[`unlocked${settingType.charAt(0).toUpperCase() + settingType.slice(1)}s`].includes(item.id);
+        const isSelected = userSettings[settingType] === item.id;
+        
+        const itemElement = document.createElement('div');
+        itemElement.className = `shop-item ${isUnlocked ? 'unlocked' : 'locked'} ${isSelected ? 'selected' : ''}`;
+        itemElement.dataset.id = item.id;
+        itemElement.dataset.category = category;
+        itemElement.dataset.price = item.price;
+        
+        // Для аватаров и скинов используем цвет, для фонов - градиент
+        if (category === 'backgrounds') {
+            itemElement.className += ` profile-bg-${item.id}`;
+        } else if (category === 'avatars') {
+            itemElement.style.backgroundColor = getAvatarColor(item.id);
+            itemElement.textContent = item.id;
+            itemElement.style.display = 'flex';
+            itemElement.style.alignItems = 'center';
+            itemElement.style.justifyContent = 'center';
+            itemElement.style.color = 'white';
+            itemElement.style.fontWeight = 'bold';
+        } else {
+            itemElement.className += ` snake-color-${item.id}`;
+        }
+        
+        itemElement.innerHTML += `
+            <div class="shop-item-price">
+                ${isUnlocked ? '✓ Куплено' : `${item.price} монет`}
+            </div>
+        `;
+        
+        itemElement.addEventListener('click', () => handleShopItemClick(item, category, settingType));
+        container.appendChild(itemElement);
+    });
+}
+
+// Обработка клика на предмет в магазине
+function handleShopItemClick(item, category, settingType) {
+    const unlockedKey = `unlocked${settingType.charAt(0).toUpperCase() + settingType.slice(1)}s`;
+    
+    // Если предмет уже разблокирован - выбираем его
+    if (userSettings[unlockedKey].includes(item.id)) {
+        userSettings[settingType] = item.id;
+        applyProfileSettings();
+        showShopModal(); // Обновляем магазин
+        saveProfileSettings();
+        showToast(`${item.name} выбран!`);
+        return;
+    }
+    
+    // Если предмет не разблокирован - проверяем, хватает ли монет
+    if (userSettings.coins >= item.price) {
+        if (confirm(`Купить ${item.name} за ${item.price} монет?`)) {
+            userSettings.coins -= item.price;
+            userSettings[unlockedKey].push(item.id);
+            userSettings[settingType] = item.id;
+            
+            saveProfileSettings().then(() => {
+                showShopModal(); // Обновляем магазин
+                showToast(`${item.name} куплен!`);
+            });
+        }
+    } else {
+        showToast(`Недостаточно монет. Нужно ещё ${item.price - userSettings.coins}`);
+    }
+}
+
 
         // Запуск игры при загрузке страницы
         window.addEventListener('load', init);
