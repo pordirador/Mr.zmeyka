@@ -1298,13 +1298,6 @@ function selectSnakeSkin(e) {
     ctx.fill();
 }
 
-        function applyProfileSettings() {
-    // Аватары - показываем только разблокированные
-    document.querySelectorAll('.avatar-option').forEach(el => {
-        const avatarId = parseInt(el.dataset.avatar);
-        el.style.display = userSettings.unlockedAvatars.includes(avatarId) ? 'flex' : 'none';
-        el.classList.toggle('selected', userSettings.avatar === avatarId);
-    });
     
     // Фоны - показываем только разблокированные
     document.querySelectorAll('.background-option').forEach(el => {
@@ -1374,10 +1367,6 @@ function selectSnakeSkin(e) {
             }
         }
         
-        function gameStep() {
-            update();
-            draw();
-        }
         
         async function gameOver() {
     clearInterval(gameLoop);
