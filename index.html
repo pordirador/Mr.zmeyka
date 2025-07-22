@@ -1302,7 +1302,7 @@ function selectSnakeSkin(e) {
     // Фоны - показываем только разблокированные
         const bgId = parseInt(el.dataset.bg);
         el.style.display = userSettings.unlockedBackgrounds.includes(bgId) ? 'block' : 'none';
-    });
+    
     
     // Скины змейки - показываем только разблокированные
     document.querySelectorAll('.snake-skin-option').forEach(el => {
