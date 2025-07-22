@@ -657,35 +657,6 @@ const refreshLeaderboardBtn = document.getElementById('refresh-leaderboard');
 const closeLeaderboardBtn = document.getElementById('close-leaderboard');
 const closeHowToPlayBtn = document.getElementById('close-how-to-play');
 
-// ========== НАСТРОЙКИ ИГРЫ ==========
-const gridSize = 20;
-let snake = [];
-let food = {};
-let direction = 'none';
-let nextDirection = 'none';
-let score = 0;
-let gameSpeed = 150;
-let gameLoop;
-let gameActive = false;
-let refreshInterval;
-
-// Текущий пользователь
-let currentUser = {
-    id: null,
-    display_name: 'Гость'
-};
-
-// Настройки профиля
-let userSettings = {
-    avatar: 1,
-    background: 1,
-    snakeSkin: 1,
-    coins: 0,
-    unlockedAvatars: [1],
-    unlockedBackgrounds: [1],
-    unlockedSkins: [1]
-};
-
 // Цены на предметы
 const shopItems = {
     avatars: [
