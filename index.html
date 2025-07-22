@@ -177,6 +177,43 @@
             z-index: 1000;
             animation: slide-in 0.3s ease-out;
         }
+        /* Добавить в стили */
+.locked {
+    opacity: 0.7;
+    position: relative;
+    cursor: not-allowed;
+}
+
+.locked::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    border-radius: 6px;
+}
+
+.price-tag {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    background: gold;
+    color: black;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    z-index: 2;
+}
+
+.coins-display {
+    text-align: center;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    font-weight: bold;
+    color: #FFD700; /* золотой цвет */
+}
         
         .fade-out {
             opacity: 0;
@@ -461,7 +498,24 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
         <button id="leaderboard-btn" class="menu-btn">Таблица рекордов</button>
         <button id="how-to-play-btn" class="menu-btn">Как играть</button>
         <button id="profile-btn" class="menu-btn" style="margin-top: 20px;">Профиль</button>
+        <!-- Добавить в main-menu -->
+<button id="shop-btn" class="menu-btn">Магазин</button>
+
+<!-- Добавить модальное окно магазина -->
+<div id="shop-modal" class="modal">
+    <div class="modal-content">
+        <button class="close-modal-btn">&times;</button>
+        <h2>Магазин</h2>
+        <div class="coins-display">Монеты: <span id="coins-amount">0</span></div>
+        
+        <div id="shop-content">
+            <!-- Тут будут те же секции, что и в профиле -->
+            <!-- Но с кнопками покупки и информацией о разблокировке -->
+        </div>
     </div>
+</div>
+    </div>
+    
     
     <!-- Игровое поле -->
     <div id="game-container">
@@ -625,7 +679,13 @@ body.profile-bg-6 { background: linear-gradient(135deg, #795548, #3E2723); }
 let userSettings = {
     avatar: 1,
     background: 1,
-    snakeSkin: 1
+    snakeSkin: 1,
+    coins: 0, // Добавляем поле для монет
+    unlockedItems: { // Разблокированные предметы
+        avatars: [1], // По умолчанию первый аватар разблокирован
+        backgrounds: [1],
+        snakeSkins: [1]
+    }
 };
 
 // Загрузка настроек профиля
@@ -645,12 +705,79 @@ async function loadProfileSettings() {
 
 // Применение настроек профиля
 function applyProfileSettings() {
-    // Выбираем активные элементы в профиле
-    document.querySelector(`.avatar-option[data-avatar="${userSettings.avatar}"]`)?.classList.add('selected');
-    document.querySelector(`.background-option[data-bg="${userSettings.background}"]`)?.classList.add('selected');
-    document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"]`)?.classList.add('selected');
+    // Показываем ID пользователя
+    if (currentUser.id) {
+        profileIdSpan.textContent = currentUser.id.substring(0, 8) + '...';
+    }
     
-    // Можно добавить применение скина змейки в игре
+    // Применяем выбранный фон (только если разблокирован)
+    document.body.className = '';
+    if (userSettings.unlockedItems.backgrounds.includes(userSettings.background)) {
+        document.body.classList.add(`profile-bg-${userSettings.background}`);
+    } else {
+        document.body.classList.add(`profile-bg-1`); // Фон по умолчанию
+    }
+    
+    // Обновляем аватары
+    document.querySelectorAll('.avatar-option').forEach(el => {
+        const avatarNum = parseInt(el.dataset.avatar);
+        const isUnlocked = userSettings.unlockedItems.avatars.includes(avatarNum);
+        
+        el.classList.toggle('locked', !isUnlocked);
+        el.classList.remove('selected');
+        
+        if (!isUnlocked) {
+            el.innerHTML = '<span class="price-tag">10</span>';
+        } else {
+            el.innerHTML = avatarNum;
+        }
+        
+        if (avatarNum === userSettings.avatar) {
+            el.classList.add('selected');
+        }
+    });
+    
+    // Обновляем фоны
+    document.querySelectorAll('.background-option').forEach(el => {
+        const bgNum = parseInt(el.dataset.bg);
+        const isUnlocked = userSettings.unlockedItems.backgrounds.includes(bgNum);
+        
+        el.classList.toggle('locked', !isUnlocked);
+        el.classList.remove('selected');
+        
+        if (!isUnlocked) {
+            el.innerHTML = '<span class="price-tag">10</span>';
+        }
+        
+        if (bgNum === userSettings.background) {
+            el.classList.add('selected');
+        }
+    });
+    
+    // Обновляем скины змейки
+    document.querySelectorAll('.snake-skin-option').forEach(el => {
+        const skinNum = parseInt(el.dataset.skin);
+        const isUnlocked = userSettings.unlockedItems.snakeSkins.includes(skinNum);
+        
+        el.classList.toggle('locked', !isUnlocked);
+        el.classList.remove('selected');
+        
+        if (!isUnlocked) {
+            el.innerHTML = '<span class="price-tag">10</span>';
+        }
+        
+        if (skinNum === userSettings.snakeSkin) {
+            el.classList.add('selected');
+        }
+    });
+    
+    // Обновляем количество монет
+    if (document.getElementById('coins-amount')) {
+        document.getElementById('coins-amount').textContent = userSettings.coins;
+    }
+    
+    // Обновляем имя в профиле
+    profileNameInput.value = currentUser.display_name;
 }
 
 // Сохранение настроек профиля
@@ -669,34 +796,112 @@ async function saveProfileSettings() {
 function setupProfileOptions() {
     // Аватары
     document.querySelectorAll('.avatar-option').forEach(option => {
-        option.addEventListener('click', () => {
+        option.addEventListener('click', async () => {
+            const avatarNum = parseInt(option.dataset.avatar);
+            
+            // Проверяем, разблокирован ли аватар
+            if (!userSettings.unlockedItems.avatars.includes(avatarNum)) {
+                const success = await buyItem('avatars', avatarNum);
+                if (!success) return;
+                
+                // После покупки обновляем интерфейс
+                applyProfileSettings();
+            }
+            
+            // Выбираем аватар
             document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
             option.classList.add('selected');
-            userSettings.avatar = parseInt(option.dataset.avatar);
+            userSettings.avatar = avatarNum;
+            
+            // Сохраняем изменения
+            if (currentUser.id && !currentUser.id.startsWith('local_')) {
+                await db.ref(`userSettings/${currentUser.id}/avatar`).set(avatarNum);
+            }
         });
     });
     
     // Фоны
     document.querySelectorAll('.background-option').forEach(option => {
-        option.addEventListener('click', () => {
+        option.addEventListener('click', async () => {
+            const bgNum = parseInt(option.dataset.bg);
+            
+            // Проверяем, разблокирован ли фон
+            if (!userSettings.unlockedItems.backgrounds.includes(bgNum)) {
+                const success = await buyItem('backgrounds', bgNum);
+                if (!success) return;
+                
+                // После покупки обновляем интерфейс
+                applyProfileSettings();
+            }
+            
+            // Выбираем фон
             document.querySelectorAll('.background-option').forEach(el => el.classList.remove('selected'));
             option.classList.add('selected');
-            userSettings.background = parseInt(option.dataset.bg);
-            applyProfileBackground();
+            userSettings.background = bgNum;
+            
+            // Применяем фон
+            document.body.className = '';
+            document.body.classList.add(`profile-bg-${bgNum}`);
+            
+            // Сохраняем изменения
+            if (currentUser.id && !currentUser.id.startsWith('local_')) {
+                await db.ref(`userSettings/${currentUser.id}/background`).set(bgNum);
+            }
         });
     });
     
     // Скины змейки
     document.querySelectorAll('.snake-skin-option').forEach(option => {
-        option.addEventListener('click', () => {
+        option.addEventListener('click', async () => {
+            const skinNum = parseInt(option.dataset.skin);
+            
+            // Проверяем, разблокирован ли скин
+            if (!userSettings.unlockedItems.snakeSkins.includes(skinNum)) {
+                const success = await buyItem('snakeSkins', skinNum);
+                if (!success) return;
+                
+                // После покупки обновляем интерфейс
+                applyProfileSettings();
+            }
+            
+            // Выбираем скин
             document.querySelectorAll('.snake-skin-option').forEach(el => el.classList.remove('selected'));
             option.classList.add('selected');
-            userSettings.snakeSkin = parseInt(option.dataset.skin);
-            if (gameActive) draw(); // Перерисовываем змейку, если игра активна
+            userSettings.snakeSkin = skinNum;
+            
+            // Перерисовываем змейку, если игра активна
+            if (gameActive) draw();
+            
+            // Сохраняем изменения
+            if (currentUser.id && !currentUser.id.startsWith('local_')) {
+                await db.ref(`userSettings/${currentUser.id}/snakeSkin`).set(skinNum);
+            }
         });
     });
+    
+    // Кнопка сохранения профиля
+    profileSaveBtn.addEventListener('click', async () => {
+        const newName = profileNameInput.value.trim();
+        if (newName.length < 2 || newName.length > 20) {
+            showToast('Имя должно быть от 2 до 20 символов');
+            return;
+        }
+        
+        try {
+            await db.ref(`users/${currentUser.id}`).update({
+                display_name: newName,
+                last_login: firebase.database.ServerValue.TIMESTAMP
+            });
+            
+            currentUser.display_name = newName;
+            updateProfileButton();
+            showToast('Профиль сохранен!');
+            profileModal.style.display = 'none';
+        } catch (error) {
+            showToast('Ошибка сохранения');
+        }
+    });
 }
-
 // Применение фона профиля
 function applyProfileBackground() {
     // Удаляем все классы фона
@@ -793,6 +998,11 @@ async function updateProfile() {
     // Инициализация игры с настройками по умолчанию
     userSettings = userSettings || { avatar: 1, background: 1, snakeSkin: 1 };
 }
+        // В init() добавить:
+document.getElementById('shop-btn').addEventListener('click', () => {
+    document.getElementById('coins-amount').textContent = userSettings.coins;
+    shopModal.style.display = 'flex';
+});
 
             
         // ========== ФУНКЦИИ ИНТЕРФЕЙСА ==========
@@ -1065,6 +1275,15 @@ function applyProfileSettings() {
     
     // Добавляем обработчик для кнопки "Играть снова"
     restartBtn.onclick = startGame;
+}
+        if (currentUser.id && !currentUser.id.startsWith('local_') {
+        const earnedCoins = Math.floor(score / 100);
+        if (earnedCoins > 0) {
+            userSettings.coins += earnedCoins;
+            await db.ref(`userSettings/${currentUser.id}/coins`).set(userSettings.coins);
+            showToast(`Получено ${earnedCoins} монет! Всего: ${userSettings.coins}`);
+        }
+    }
 }
         
         function startGame() {
@@ -1394,6 +1613,33 @@ function getAvatarColor(avatarNum) {
         'linear-gradient(135deg, #795548, #3E2723)'
     ];
     return colors[(avatarNum - 1) % colors.length];
+}
+        async function buyItem(type, id) {
+    if (userSettings.coins < 10) {
+        showToast('Недостаточно монет!');
+        return false;
+    }
+    
+    if (!userSettings.unlockedItems[type].includes(id)) {
+        userSettings.coins -= 10;
+        userSettings.unlockedItems[type].push(id);
+        
+        try {
+            await db.ref(`userSettings/${currentUser.id}`).update({
+                coins: userSettings.coins,
+                [`unlockedItems/${type}`]: userSettings.unlockedItems[type]
+            });
+            
+            showToast('Покупка успешна!');
+            applyProfileSettings();
+            return true;
+        } catch (error) {
+            console.error('Ошибка покупки:', error);
+            showToast('Ошибка покупки');
+            return false;
+        }
+    }
+    return true;
 }
 
         // Запуск игры при загрузке страницы
