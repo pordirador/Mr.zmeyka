@@ -1187,36 +1187,24 @@ document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"
 
         async function updateProfile() {
     const newName = profileNameInput.value.trim();
-    if (newName.length < 2) {
-        showToast('Имя слишком короткое');
+    
+    // Проверка имени
+    if (newName.length < 2 || newName.length > 20) {
+        showToast('Имя должно быть от 2 до 20 символов');
         return;
     }
     
     try {
-        // Сохраняем настройки
+        // 1. Сохраняем настройки профиля
         await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
         
-        // Обновляем имя
+        // 2. Обновляем основную информацию пользователя
         await db.ref(`users/${currentUser.id}`).update({
-            display_name: newName
+            display_name: newName,
+            last_login: firebase.database.ServerValue.TIMESTAMP
         });
         
-        currentUser.display_name = newName;
-        updateProfileButton();
-        profileModal.style.display = 'none';
-        showToast('Настройки сохранены!');
-        
-        // Применяем изменения
-        applyProfileSettings();
-    } catch (error) {
-        showToast('Ошибка сохранения');
-    }
-}
-        
-        // Сохраняем настройки
-        await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
-        
-        // Обновляем имя во ВСЕХ существующих рекордах этого пользователя
+        // 3. Обновляем все рекорды пользователя
         const scoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
         const snapshot = await scoresRef.once('value');
         
@@ -1229,21 +1217,26 @@ document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"
             await db.ref().update(updates);
         }
         
+        // 4. Обновляем локальные данные
         currentUser.display_name = newName;
         updateProfileButton();
-        profileModal.style.display = 'none';
         
-        // Применяем новый фон профиля
+        // 5. Применяем визуальные изменения
         applyProfileBackground();
+        applyProfileSettings();
         
+        // 6. Закрываем модальное окно и показываем уведомление
+        profileModal.style.display = 'none';
         showToast('Профиль и все рекорды обновлены!');
-        loadLeaderboard(topPlayersList, 5);
+        
+        // 7. Обновляем таблицу лидеров
+        await loadLeaderboard(topPlayersList, 5);
+        
     } catch (error) {
         console.error('Ошибка обновления профиля:', error);
         showToast('Ошибка обновления профиля');
     }
 }
-
         function applyProfileBackground() {
     // Удаляем все классы фона
     document.body.classList.remove(
