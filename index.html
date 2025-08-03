@@ -760,20 +760,21 @@ shopBtn.addEventListener('click', showShopModal);
 // В разделе с настройками профиля добавьте:
 // Замените текущее объявление userSettings на это:
 // В самом начале скрипта, перед всеми функциями
+// Правильная структура для инвентаря
 let userSettings = {
     coins: 0,
     avatar: 1,
     background: 1,
     snakeSkin: 1,
     unlockedItems: {
-        avatars: [1],
-        backgrounds: [1],
-        snakeSkins: [1]
+        avatars: ["1"], // Используем строки вместо чисел
+        backgrounds: ["1"],
+        snakeSkins: ["1"]
     },
     inventory: {
-        avatars: [1],
-        backgrounds: [1],
-        snakeSkins: [1]
+        avatars: ["1"], // Используем строки вместо чисел
+        backgrounds: ["1"],
+        snakeSkins: ["1"]
     }
 };
 
@@ -791,14 +792,14 @@ async function loadProfileSettings() {
                 background: Number(data.background) || 1,
                 snakeSkin: Number(data.snakeSkin) || 1,
                 unlockedItems: {
-                    avatars: data.unlockedItems?.avatars || [1],
-                    backgrounds: data.unlockedItems?.backgrounds || [1],
-                    snakeSkins: data.unlockedItems?.snakeSkins || [1]
+                    avatars: data.unlockedItems?.avatars?.map(Number) || [1],
+                    backgrounds: data.unlockedItems?.backgrounds?.map(Number) || [1],
+                    snakeSkins: data.unlockedItems?.snakeSkins?.map(Number) || [1]
                 },
                 inventory: {
-                    avatars: data.inventory?.avatars || [1],
-                    backgrounds: data.inventory?.backgrounds || [1],
-                    snakeSkins: data.inventory?.snakeSkins || [1]
+                    avatars: data.inventory?.avatars?.map(Number) || [1],
+                    backgrounds: data.inventory?.backgrounds?.map(Number) || [1],
+                    snakeSkins: data.inventory?.snakeSkins?.map(Number) || [1]
                 }
             };
             applyProfileSettings();
@@ -900,16 +901,25 @@ async function saveProfileSettings() {
     if (!currentUser.id || currentUser.id.startsWith('local_')) return;
     
     try {
-        // Преобразуем coins в число на всякий случай
-        userSettings.coins = Number(userSettings.coins) || 0;
-        
-        await db.ref(`userSettings/${currentUser.id}`).update({
+        // Преобразуем данные в правильный формат
+        const updateData = {
             coins: userSettings.coins,
-            avatar: userSettings.avatar,
-            background: userSettings.background,
-            snakeSkin: userSettings.snakeSkin,
-            inventory: userSettings.inventory
-        });
+            avatar: userSettings.avatar.toString(),
+            background: userSettings.background.toString(),
+            snakeSkin: userSettings.snakeSkin.toString(),
+            unlockedItems: {
+                avatars: userSettings.unlockedItems.avatars.map(String),
+                backgrounds: userSettings.unlockedItems.backgrounds.map(String),
+                snakeSkins: userSettings.unlockedItems.snakeSkins.map(String)
+            },
+            inventory: {
+                avatars: userSettings.inventory.avatars.map(String),
+                backgrounds: userSettings.inventory.backgrounds.map(String),
+                snakeSkins: userSettings.inventory.snakeSkins.map(String)
+            }
+        };
+        
+        await db.ref(`userSettings/${currentUser.id}`).set(updateData);
         showToast('Настройки сохранены!');
     } catch (error) {
         console.error('Ошибка сохранения настроек:', error);
@@ -2164,14 +2174,16 @@ async function buyItem(type, itemId, price) {
         
         if (!userSettings.inventory) {
             userSettings.inventory = {
-                avatars: [1],
-                backgrounds: [1],
-                snakeSkins: [1]
+                avatars: ["1"],
+                backgrounds: ["1"],
+                snakeSkins: ["1"]
             };
         }
         
+        const itemIdStr = itemId.toString();
+        
         if (!userSettings.inventory[type]) {
-            userSettings.inventory[type] = [1];
+            userSettings.inventory[type] = ["1"];
         }
 
         if (userSettings.coins < price) {
@@ -2181,8 +2193,8 @@ async function buyItem(type, itemId, price) {
 
         // Покупка
         userSettings.coins -= price;
-        if (!userSettings.inventory[type].includes(itemId)) {
-            userSettings.inventory[type].push(itemId);
+        if (!userSettings.inventory[type].includes(itemIdStr)) {
+            userSettings.inventory[type].push(itemIdStr);
         }
 
         await saveProfileSettings();
