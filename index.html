@@ -1916,28 +1916,32 @@ function renderShopSection(type) {
 
 // Отрисовка предметов в магазине
 function renderShopItems() {
-    // Аватары
-    const avatarsGrid = document.getElementById('avatars-grid');
-    avatarsGrid.innerHTML = '';
+    if (!shopItems) {
+        console.error("shopItems is not defined");
+        return;
+    }
+
+    // Очищаем контейнеры
+    document.getElementById('avatars-grid').innerHTML = '';
+    document.getElementById('backgrounds-grid').innerHTML = '';
+    document.getElementById('skins-grid').innerHTML = '';
+
+    // Рендерим аватары
     shopItems.avatars.forEach(item => {
         const itemEl = createShopItem('avatars', item);
-        avatarsGrid.appendChild(itemEl);
+        document.getElementById('avatars-grid').appendChild(itemEl);
     });
 
-    // Фоны
-    const bgsGrid = document.getElementById('backgrounds-grid');
-    bgsGrid.innerHTML = '';
+    // Рендерим фоны
     shopItems.backgrounds.forEach(item => {
         const itemEl = createShopItem('backgrounds', item);
-        bgsGrid.appendChild(itemEl);
+        document.getElementById('backgrounds-grid').appendChild(itemEl);
     });
 
-    // Скины
-    const skinsGrid = document.getElementById('skins-grid');
-    skinsGrid.innerHTML = '';
+    // Рендерим скины
     shopItems.snakeSkins.forEach(item => {
         const itemEl = createShopItem('snakeSkins', item);
-        skinsGrid.appendChild(itemEl);
+        document.getElementById('skins-grid').appendChild(itemEl);
     });
 }
 
