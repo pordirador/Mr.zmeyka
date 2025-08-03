@@ -759,11 +759,17 @@ shopBtn.addEventListener('click', showShopModal);
         // Настройки профиля
 // В разделе с настройками профиля добавьте:
 // Замените текущее объявление userSettings на это:
+// В самом начале скрипта, перед всеми функциями
 let userSettings = {
     coins: 0,
     avatar: 1,
     background: 1,
     snakeSkin: 1,
+    unlockedItems: {
+        avatars: [1],
+        backgrounds: [1],
+        snakeSkins: [1]
+    },
     inventory: {
         avatars: [1],
         backgrounds: [1],
@@ -784,10 +790,15 @@ async function loadProfileSettings() {
                 avatar: Number(data.avatar) || 1,
                 background: Number(data.background) || 1,
                 snakeSkin: Number(data.snakeSkin) || 1,
-                inventory: data.inventory || {
-                    avatars: [1],
-                    backgrounds: [1],
-                    snakeSkins: [1]
+                unlockedItems: {
+                    avatars: data.unlockedItems?.avatars || [1],
+                    backgrounds: data.unlockedItems?.backgrounds || [1],
+                    snakeSkins: data.unlockedItems?.snakeSkins || [1]
+                },
+                inventory: {
+                    avatars: data.inventory?.avatars || [1],
+                    backgrounds: data.inventory?.backgrounds || [1],
+                    snakeSkins: data.inventory?.snakeSkins || [1]
                 }
             };
             applyProfileSettings();
