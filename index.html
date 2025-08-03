@@ -1920,40 +1920,62 @@ function getAvatarColor(avatarNum) {
     shopModal.style.display = 'flex';
 }
 
-function renderShopSection(type) {
-    const container = document.getElementById(`${type}-grid`);
-    if (!container) return;
+function renderShopItems() {
+    // Проверяем существование контейнеров
+    const containers = {
+        avatars: document.getElementById('avatars-grid'),
+        backgrounds: document.getElementById('backgrounds-grid'),
+        snakeSkins: document.getElementById('skins-grid')
+    };
     
-    container.innerHTML = '';
-    
-    // Проверяем, существует ли массив для данного типа
-    if (!userSettings.inventory[type]) {
-        userSettings.inventory[type] = [1]; // Инициализируем массив с базовым элементом
+    for (const [type, container] of Object.entries(containers)) {
+        if (!container) {
+            console.error(`Контейнер для ${type} не найден`);
+            continue;
+        }
+        
+        container.innerHTML = '';
+        
+        const categoryItems = shopItems[type];
+        if (!categoryItems) {
+            console.error(`Категория ${type} не найдена`);
+            continue;
+        }
+        
+        categoryItems.forEach(item => {
+            if (!item || !item.id) {
+                console.error('Неверный объект предмета', item);
+                return;
+            }
+            
+            const itemElement = document.createElement('div');
+            itemElement.className = 'shop-item';
+            itemElement.dataset.type = type;
+            itemElement.dataset.id = item.id;
+            
+            // Добавляем обработчик
+            itemElement.addEventListener('click', handleShopItemClick);
+            
+            // Проверяем, разблокирован ли предмет
+            const isUnlocked = userSettings.inventory?.[type]?.includes(item.id.toString());
+            if (isUnlocked) {
+                itemElement.classList.add('unlocked');
+            }
+            
+            // Заполняем содержимое в зависимости от типа
+            if (type === 'avatars') {
+                itemElement.innerHTML = `
+                    <div class="item-icon" style="background: ${getAvatarColor(item.id)}">${item.id}</div>
+                    <div class="item-name">${item.name}</div>
+                    ${isUnlocked ? '<div class="item-status">Куплено</div>' : `<div class="item-price">${item.price} монет</div>`}
+                `;
+            } else {
+                // Аналогично для других типов
+            }
+            
+            container.appendChild(itemElement);
+        });
     }
-    
-    shopItems[type].forEach(item => {
-        const isUnlocked = userSettings.inventory[type].includes(item.id);
-        const itemElement = document.createElement('div');
-        itemElement.className = `shop-item ${isUnlocked ? 'unlocked' : 'locked'}`;
-        itemElement.dataset.id = item.id;
-        itemElement.dataset.type = type;
-        
-        if (type === 'avatars') {
-            itemElement.style.background = getAvatarColor(item.id);
-            itemElement.textContent = item.id;
-        } else if (type === 'backgrounds') {
-            itemElement.classList.add(`profile-bg-${item.id}`);
-        } else {
-            itemElement.classList.add(`snake-color-${item.id}`);
-        }
-        
-        if (!isUnlocked) {
-            itemElement.innerHTML += `<div class="price-tag">${item.price}</div>`;
-        }
-        
-        itemElement.addEventListener('click', () => handleShopItemClick(item, type));
-        container.appendChild(itemElement);
-    });
 }
 
 // Отрисовка предметов в магазине
@@ -2128,15 +2150,33 @@ function loadShopItems(category) {
 }
 
 // Обработчик клика на товар в магазине
-async function handleShopItemClick(item, type) {
+async function handleShopItemClick(event) {
     try {
-        // Проверяем существование элемента
-        if (!item || !item.id) {
-            console.error('Неверный объект предмета');
+        // Получаем элемент, на который кликнули
+        const itemElement = event.currentTarget;
+        const type = itemElement.dataset.type;
+        const itemId = itemElement.dataset.id;
+        
+        // Проверяем обязательные данные
+        if (!type || !itemId) {
+            console.error('Не хватает данных о предмете:', {type, itemId});
+            return;
+        }
+        
+        // Находим предмет в магазине
+        const category = shopItems[type];
+        if (!category) {
+            console.error('Неизвестный тип предмета:', type);
+            return;
+        }
+        
+        const item = category.find(i => i.id.toString() === itemId.toString());
+        if (!item) {
+            console.error('Предмет не найден:', {type, itemId});
             return;
         }
 
-        // Проверяем и инициализируем inventory
+        // Проверяем инвентарь
         if (!userSettings.inventory) {
             userSettings.inventory = {
                 avatars: ["1"],
@@ -2145,8 +2185,7 @@ async function handleShopItemClick(item, type) {
             };
         }
 
-        const itemIdStr = String(item.id);
-        const isUnlocked = userSettings.inventory[type]?.includes(itemIdStr) || false;
+        const isUnlocked = userSettings.inventory[type]?.includes(item.id.toString());
 
         if (isUnlocked) {
             // Выбираем предмет
