@@ -761,18 +761,19 @@ shopBtn.addEventListener('click', showShopModal);
 // Замените текущее объявление userSettings на это:
 // В самом начале скрипта, перед всеми функциями
 // Правильная структура для инвентаря
+// В самом начале скрипта (перед всеми функциями)
 let userSettings = {
     coins: 0,
     avatar: 1,
     background: 1,
     snakeSkin: 1,
     unlockedItems: {
-        avatars: ["1"], // Используем строки вместо чисел
+        avatars: ["1"],
         backgrounds: ["1"],
         snakeSkins: ["1"]
     },
     inventory: {
-        avatars: ["1"], // Используем строки вместо чисел
+        avatars: ["1"],
         backgrounds: ["1"],
         snakeSkins: ["1"]
     }
@@ -901,12 +902,12 @@ async function saveProfileSettings() {
     if (!currentUser.id || currentUser.id.startsWith('local_')) return;
     
     try {
-        // Преобразуем данные в правильный формат
-        const updateData = {
+        // Подготовка данных для сохранения
+        const saveData = {
             coins: userSettings.coins,
-            avatar: userSettings.avatar.toString(),
-            background: userSettings.background.toString(),
-            snakeSkin: userSettings.snakeSkin.toString(),
+            avatar: userSettings.avatar,
+            background: userSettings.background,
+            snakeSkin: userSettings.snakeSkin,
             unlockedItems: {
                 avatars: userSettings.unlockedItems.avatars.map(String),
                 backgrounds: userSettings.unlockedItems.backgrounds.map(String),
@@ -919,11 +920,10 @@ async function saveProfileSettings() {
             }
         };
         
-        await db.ref(`userSettings/${currentUser.id}`).set(updateData);
-        showToast('Настройки сохранены!');
+        await db.ref(`userSettings/${currentUser.id}`).set(saveData);
     } catch (error) {
-        console.error('Ошибка сохранения настроек:', error);
-        showToast('Ошибка сохранения');
+        console.error('Ошибка сохранения:', error);
+        throw error; // Перебрасываем ошибку для обработки в buyItem
     }
 }
 
@@ -2130,24 +2130,27 @@ function loadShopItems(category) {
 // Обработчик клика на товар в магазине
 async function handleShopItemClick(item, type) {
     try {
-        // Проверяем и инициализируем inventory если нужно
-        if (!userSettings.inventory) {
-            userSettings.inventory = {
-                avatars: [1],
-                backgrounds: [1],
-                snakeSkins: [1]
-            };
-        }
-        
-        if (!userSettings.inventory[type]) {
-            userSettings.inventory[type] = [1]; // Базовый предмет
+        // Проверяем существование элемента
+        if (!item || !item.id) {
+            console.error('Неверный объект предмета');
+            return;
         }
 
-        const isUnlocked = userSettings.inventory[type].includes(item.id);
-        
+        // Проверяем и инициализируем inventory
+        if (!userSettings.inventory) {
+            userSettings.inventory = {
+                avatars: ["1"],
+                backgrounds: ["1"],
+                snakeSkins: ["1"]
+            };
+        }
+
+        const itemIdStr = String(item.id);
+        const isUnlocked = userSettings.inventory[type]?.includes(itemIdStr) || false;
+
         if (isUnlocked) {
             // Выбираем предмет
-            userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = item.id;
+            userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = Number(item.id);
             await saveProfileSettings();
             showToast(`${item.name} выбран!`);
             renderShopItems();
@@ -2155,13 +2158,13 @@ async function handleShopItemClick(item, type) {
             // Покупаем предмет
             const success = await buyItem(type, item.id, item.price);
             if (success) {
-                userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = item.id;
+                userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = Number(item.id);
                 await saveProfileSettings();
                 renderShopItems();
             }
         }
     } catch (error) {
-        console.error('Error in handleShopItemClick:', error);
+        console.error('Ошибка в handleShopItemClick:', error);
         showToast('Произошла ошибка');
     }
 }
@@ -2170,8 +2173,6 @@ async function handleShopItemClick(item, type) {
 async function buyItem(type, itemId, price) {
     try {
         // Проверяем и инициализируем данные
-        userSettings.coins = Number(userSettings.coins) || 0;
-        
         if (!userSettings.inventory) {
             userSettings.inventory = {
                 avatars: ["1"],
@@ -2180,28 +2181,36 @@ async function buyItem(type, itemId, price) {
             };
         }
         
-        const itemIdStr = itemId.toString();
+        // Гарантируем, что itemId - строка
+        const itemIdStr = String(itemId || '1');
         
+        // Инициализируем массив для типа, если его нет
         if (!userSettings.inventory[type]) {
             userSettings.inventory[type] = ["1"];
         }
 
+        // Проверяем баланс
+        userSettings.coins = Number(userSettings.coins) || 0;
         if (userSettings.coins < price) {
             showToast('Недостаточно монет!');
             return false;
         }
 
-        // Покупка
-        userSettings.coins -= price;
-        if (!userSettings.inventory[type].includes(itemIdStr)) {
-            userSettings.inventory[type].push(itemIdStr);
+        // Если предмет уже куплен
+        if (userSettings.inventory[type].includes(itemIdStr)) {
+            return true;
         }
 
+        // Совершаем покупку
+        userSettings.coins -= price;
+        userSettings.inventory[type].push(itemIdStr);
+
+        // Сохраняем изменения
         await saveProfileSettings();
         showToast('Покупка успешна!');
         return true;
     } catch (error) {
-        console.error('Error in buyItem:', error);
+        console.error('Ошибка при покупке:', error);
         showToast('Ошибка покупки');
         return false;
     }
