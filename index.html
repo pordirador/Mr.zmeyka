@@ -760,16 +760,11 @@ shopBtn.addEventListener('click', showShopModal);
 // В разделе с настройками профиля добавьте:
 // Замените текущее объявление userSettings на это:
 let userSettings = {
+    coins: 0,
     avatar: 1,
     background: 1,
     snakeSkin: 1,
-    coins: 0,
     inventory: {
-        avatars: [1],
-        backgrounds: [1],
-        snakeSkins: [1]
-    },
-    unlockedItems: {
         avatars: [1],
         backgrounds: [1],
         snakeSkins: [1]
@@ -2113,73 +2108,77 @@ function loadShopItems(category) {
 
 // Обработчик клика на товар в магазине
 async function handleShopItemClick(item, type) {
-    const isUnlocked = userSettings.inventory[type].includes(item.id);
-    
-    if (isUnlocked) {
-        // Выбираем предмет
-        userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = item.id;
-        await saveProfileSettings();
-        showToast(`${item.name} выбран!`);
-        renderShopItems();
-    } else {
-        // Покупаем предмет
-        const success = await buyItem(type, item.id, item.price);
-        if (success) {
-            // После покупки выбираем предмет
+    try {
+        // Проверяем и инициализируем inventory если нужно
+        if (!userSettings.inventory) {
+            userSettings.inventory = {
+                avatars: [1],
+                backgrounds: [1],
+                snakeSkins: [1]
+            };
+        }
+        
+        if (!userSettings.inventory[type]) {
+            userSettings.inventory[type] = [1]; // Базовый предмет
+        }
+
+        const isUnlocked = userSettings.inventory[type].includes(item.id);
+        
+        if (isUnlocked) {
+            // Выбираем предмет
             userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = item.id;
             await saveProfileSettings();
+            showToast(`${item.name} выбран!`);
             renderShopItems();
+        } else {
+            // Покупаем предмет
+            const success = await buyItem(type, item.id, item.price);
+            if (success) {
+                userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = item.id;
+                await saveProfileSettings();
+                renderShopItems();
+            }
         }
+    } catch (error) {
+        console.error('Error in handleShopItemClick:', error);
+        showToast('Произошла ошибка');
     }
 }
 
 // Функция покупки товара
-async function buyItem(category, itemId, price) {
-    // Проверяем, что coins - число
-    userSettings.coins = Number(userSettings.coins) || 0;
-    
-    if (userSettings.coins < price) {
-        showToast('Недостаточно монет!');
-        return false;
-    }
-    
-    // Инициализируем inventory, если не существует
-    if (!userSettings.inventory) {
-        userSettings.inventory = {
-            avatars: [1],
-            backgrounds: [1],
-            snakeSkins: [1]
-        };
-    }
-    
-    // Проверяем, что массив для категории существует
-    if (!userSettings.inventory[category]) {
-        userSettings.inventory[category] = [1]; // Базовый предмет
-    }
-    
-    // Если предмет уже куплен
-    if (userSettings.inventory[category].includes(itemId)) {
-        return true;
-    }
-    
-    // Покупка предмета
-    userSettings.coins -= price;
-    userSettings.inventory[category].push(itemId);
-    
+async function buyItem(type, itemId, price) {
     try {
-        await db.ref(`userSettings/${currentUser.id}`).update({
-            coins: userSettings.coins,
-            [`inventory/${category}`]: userSettings.inventory[category]
-        });
+        // Проверяем и инициализируем данные
+        userSettings.coins = Number(userSettings.coins) || 0;
         
+        if (!userSettings.inventory) {
+            userSettings.inventory = {
+                avatars: [1],
+                backgrounds: [1],
+                snakeSkins: [1]
+            };
+        }
+        
+        if (!userSettings.inventory[type]) {
+            userSettings.inventory[type] = [1];
+        }
+
+        if (userSettings.coins < price) {
+            showToast('Недостаточно монет!');
+            return false;
+        }
+
+        // Покупка
+        userSettings.coins -= price;
+        if (!userSettings.inventory[type].includes(itemId)) {
+            userSettings.inventory[type].push(itemId);
+        }
+
+        await saveProfileSettings();
         showToast('Покупка успешна!');
-        updateCoinsDisplay();
         return true;
     } catch (error) {
-        console.error('Ошибка покупки:', error);
-        // Откатываем изменения
-        userSettings.coins += price;
-        userSettings.inventory[category] = userSettings.inventory[category].filter(id => id !== itemId);
+        console.error('Error in buyItem:', error);
         showToast('Ошибка покупки');
         return false;
     }
