@@ -1115,6 +1115,22 @@ async function updateProfile() {
     // Инициализация игры с настройками по умолчанию
     userSettings = userSettings || { avatar: 1, background: 1, snakeSkin: 1 };
 }
+        userSettings = {
+        avatar: 1,
+        background: 1,
+        snakeSkin: 1,
+        coins: 0,
+        inventory: {
+            avatars: [1],
+            backgrounds: [1],
+            snakeSkins: [1]
+        },
+        unlockedItems: {
+            avatars: [1],
+            backgrounds: [1],
+            snakeSkins: [1]
+        }
+    };
 
         // В init() добавить:
 document.getElementById('shop-btn').addEventListener('click', () => {
@@ -1964,10 +1980,17 @@ function renderShopItems() {
 }
 
 function createShopItem(type, item) {
-    // Проверяем, что userSettings.unlockedItems существует
-    if (!userSettings.unlockedItems || !userSettings.unlockedItems[type]) {
-        console.error('unlockedItems is not properly initialized');
-        return document.createElement('div'); // Возвращаем пустой элемент в случае ошибки
+    // Инициализация unlockedItems, если не существует
+    if (!userSettings.unlockedItems) {
+        userSettings.unlockedItems = {
+            avatars: [1],
+            backgrounds: [1],
+            snakeSkins: [1]
+        };
+    }
+    
+    if (!userSettings.unlockedItems[type]) {
+        userSettings.unlockedItems[type] = [1]; // Базовый предмет
     }
 
     const isUnlocked = userSettings.unlockedItems[type].includes(item.id);
