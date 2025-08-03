@@ -710,11 +710,16 @@ let userSettings = {
     avatar: 1,
     background: 1,
     snakeSkin: 1,
-    coins: 0, // Валюта для покупок
+    coins: 0,
     inventory: {
-        avatars: [1], // Купленные аватары (по умолчанию первый)
-        backgrounds: [1], // Купленные фоны
-        snakeSkins: [1] // Купленные скины змейки
+        avatars: [1],
+        backgrounds: [1],
+        snakeSkins: [1]
+    },
+    unlockedItems: {
+        avatars: [1],
+        backgrounds: [1],
+        snakeSkins: [1]
     }
 };
 
@@ -731,9 +736,16 @@ async function loadProfileSettings() {
                 background: data.background || 1,
                 snakeSkin: data.snakeSkin || 1,
                 coins: data.coins || 0,
-                unlockedAvatars: data.unlockedAvatars || [1],
-                unlockedBackgrounds: data.unlockedBackgrounds || [1],
-                unlockedSkins: data.unlockedSkins || [1]
+                inventory: data.inventory || {
+                    avatars: [1],
+                    backgrounds: [1],
+                    snakeSkins: [1]
+                },
+                unlockedItems: data.unlockedItems || {
+                    avatars: [1],
+                    backgrounds: [1],
+                    snakeSkins: [1]
+                }
             };
             applyProfileSettings();
         }
@@ -741,7 +753,7 @@ async function loadProfileSettings() {
         console.error('Ошибка загрузки настроек:', error);
     }
 }
-
+        
 // Применение настроек профиля
 function applyProfileSettings() {
     // Показываем ID пользователя
@@ -1101,6 +1113,15 @@ function applyProfileSettings() {
     if (!currentUser.id) {
         showToast('Нужно подключение к интернету');
         return;
+    }
+    
+    // Инициализация inventory, если не существует
+    if (!userSettings.inventory) {
+        userSettings.inventory = {
+            avatars: [1],
+            backgrounds: [1],
+            snakeSkins: [1]
+        };
     }
     
     // Обновляем данные перед показом
@@ -1803,6 +1824,11 @@ function renderShopSection(type) {
     if (!container) return;
     
     container.innerHTML = '';
+    
+    // Проверяем, существует ли массив для данного типа
+    if (!userSettings.inventory[type]) {
+        userSettings.inventory[type] = [1]; // Инициализируем массив с базовым элементом
+    }
     
     shopItems[type].forEach(item => {
         const isUnlocked = userSettings.inventory[type].includes(item.id);
