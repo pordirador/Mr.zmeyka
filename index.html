@@ -763,6 +763,11 @@ let userSettings = {
     background: 1,
     snakeSkin: 1,
     coins: 0,
+    inventory: {
+        avatars: [1],
+        backgrounds: [1],
+        snakeSkins: [1]
+    },
     unlockedItems: {
         avatars: [1],
         backgrounds: [1],
@@ -1109,7 +1114,6 @@ async function updateProfile() {
     // Инициализация игры с настройками по умолчанию
     userSettings = userSettings || { avatar: 1, background: 1, snakeSkin: 1 };
 }
-            setupShopTabs(); // Добавьте эту строку
 
         // В init() добавить:
 document.getElementById('shop-btn').addEventListener('click', () => {
@@ -1122,7 +1126,8 @@ document.querySelectorAll('.shop-tab').forEach(tab => {
         // Убираем активный класс у всех вкладок
         document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.shop-tab-content').forEach(c => c.classList.remove('active'));
-        
+        setupShopTabs();
+
         // Добавляем активный класс текущей вкладке
         tab.classList.add('active');
         document.getElementById(`shop-${tab.dataset.tab}`).classList.add('active');
@@ -1916,51 +1921,71 @@ function renderShopSection(type) {
 
 // Отрисовка предметов в магазине
 function renderShopItems() {
+    // Проверяем, что shopItems существует
     if (!shopItems) {
-        console.error("shopItems is not defined");
+        console.error('shopItems is not defined');
+        return;
+    }
+
+    // Получаем контейнеры
+    const avatarsGrid = document.getElementById('avatars-grid');
+    const backgroundsGrid = document.getElementById('backgrounds-grid');
+    const skinsGrid = document.getElementById('skins-grid');
+
+    // Проверяем, что контейнеры существуют
+    if (!avatarsGrid || !backgroundsGrid || !skinsGrid) {
+        console.error('One or more shop grids are missing');
         return;
     }
 
     // Очищаем контейнеры
-    document.getElementById('avatars-grid').innerHTML = '';
-    document.getElementById('backgrounds-grid').innerHTML = '';
-    document.getElementById('skins-grid').innerHTML = '';
+    avatarsGrid.innerHTML = '';
+    backgroundsGrid.innerHTML = '';
+    skinsGrid.innerHTML = '';
 
     // Рендерим аватары
     shopItems.avatars.forEach(item => {
         const itemEl = createShopItem('avatars', item);
-        document.getElementById('avatars-grid').appendChild(itemEl);
+        avatarsGrid.appendChild(itemEl);
     });
 
     // Рендерим фоны
     shopItems.backgrounds.forEach(item => {
         const itemEl = createShopItem('backgrounds', item);
-        document.getElementById('backgrounds-grid').appendChild(itemEl);
+        backgroundsGrid.appendChild(itemEl);
     });
 
     // Рендерим скины
     shopItems.snakeSkins.forEach(item => {
         const itemEl = createShopItem('snakeSkins', item);
-        document.getElementById('skins-grid').appendChild(itemEl);
+        skinsGrid.appendChild(itemEl);
     });
 }
 
 function createShopItem(type, item) {
+    // Проверяем, что userSettings.unlockedItems существует
+    if (!userSettings.unlockedItems || !userSettings.unlockedItems[type]) {
+        console.error('unlockedItems is not properly initialized');
+        return document.createElement('div'); // Возвращаем пустой элемент в случае ошибки
+    }
+
     const isUnlocked = userSettings.unlockedItems[type].includes(item.id);
     const itemEl = document.createElement('div');
     itemEl.className = `shop-item ${isUnlocked ? 'unlocked' : ''}`;
     itemEl.dataset.type = type;
     itemEl.dataset.id = item.id;
 
+    // Добавляем стиль в зависимости от типа
     if (type === 'avatars') {
         itemEl.style.background = getAvatarColor(item.id);
         itemEl.textContent = item.id;
     } else if (type === 'backgrounds') {
         itemEl.classList.add(`profile-bg-${item.id}`);
-    } else {
+    } else if (type === 'snakeSkins') {
         itemEl.classList.add(`snake-color-${item.id}`);
     }
 
+    // Добавляем цену, если предмет не разблокирован
     if (!isUnlocked) {
         const priceTag = document.createElement('div');
         priceTag.className = 'price-tag';
@@ -1968,6 +1993,7 @@ function createShopItem(type, item) {
         itemEl.appendChild(priceTag);
     }
 
+    // Обработчик клика
     itemEl.addEventListener('click', () => handleShopItemClick(type, item));
     return itemEl;
 }
@@ -2133,8 +2159,11 @@ function getSnakeSkinColor(skinId) {
 }
         function setupShopTabs() {
     const tabs = document.querySelectorAll('.shop-tab');
-    if (!tabs.length) return; // Если вкладок нет, выходим
-    
+    if (!tabs || tabs.length === 0) {
+        console.error('Shop tabs not found');
+        return;
+    }
+
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
             // Убираем активный класс у всех вкладок
@@ -2143,8 +2172,11 @@ function getSnakeSkinColor(skinId) {
             
             // Добавляем активный класс текущей вкладке
             tab.classList.add('active');
-            const tabContent = document.getElementById(`${tab.dataset.tab}-tab`);
-            if (tabContent) tabContent.classList.add('active');
+            const tabId = tab.dataset.tab;
+            const tabContent = document.getElementById(`${tabId}-tab`);
+            if (tabContent) {
+                tabContent.classList.add('active');
+            }
         });
     });
 }
