@@ -1422,7 +1422,11 @@ function update() {
         await loadLeaderboard(topPlayersList, 5);
     }
 }
-                
+
+        function gameStep() {
+    update(); // Обновляем состояние игры
+    draw();   // Перерисовываем игровое поле
+}
         function startGame() {
     // Сбрасываем игровое состояние
     snake = [];
