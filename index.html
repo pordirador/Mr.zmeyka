@@ -1045,7 +1045,7 @@ document.getElementById('shop-btn').addEventListener('click', () => {
     document.getElementById('coins-amount').textContent = userSettings.coins;
     shopModal.style.display = 'flex';
 });
-        // Обработчики вкладок магазина
+        // В init() добавьте:
 document.querySelectorAll('.shop-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         // Убираем активный класс у всех вкладок
@@ -1785,10 +1785,44 @@ function getAvatarColor(avatarNum) {
     }
     
     document.getElementById('coins-amount').textContent = userSettings.coins || 0;
-    renderShopItems('avatars-shop', 'avatars', 'avatar');
-    renderShopItems('backgrounds-shop', 'backgrounds', 'background');
-    renderShopItems('skins-shop', 'skins', 'snakeSkin');
+    
+    // Очищаем и заполняем все разделы магазина
+    renderShopSection('avatars');
+    renderShopSection('backgrounds');
+    renderShopSection('snakeSkins');
+    
     shopModal.style.display = 'flex';
+}
+
+function renderShopSection(type) {
+    const container = document.getElementById(`${type}-grid`);
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    shopItems[type].forEach(item => {
+        const isUnlocked = userSettings.inventory[type].includes(item.id);
+        const itemElement = document.createElement('div');
+        itemElement.className = `shop-item ${isUnlocked ? 'unlocked' : 'locked'}`;
+        itemElement.dataset.id = item.id;
+        itemElement.dataset.type = type;
+        
+        if (type === 'avatars') {
+            itemElement.style.background = getAvatarColor(item.id);
+            itemElement.textContent = item.id;
+        } else if (type === 'backgrounds') {
+            itemElement.classList.add(`profile-bg-${item.id}`);
+        } else {
+            itemElement.classList.add(`snake-color-${item.id}`);
+        }
+        
+        if (!isUnlocked) {
+            itemElement.innerHTML += `<div class="price-tag">${item.price}</div>`;
+        }
+        
+        itemElement.addEventListener('click', () => handleShopItemClick(item, type));
+        container.appendChild(itemElement);
+    });
 }
 
 // Отрисовка предметов в магазине
