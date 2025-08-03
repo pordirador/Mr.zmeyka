@@ -839,6 +839,16 @@ function applyProfileSettings() {
             el.classList.add('selected');
         }
     });
+    updateCoinsDisplay();
+}
+
+function updateCoinsDisplay() {
+    const coinsCounter = document.getElementById('coins-counter');
+    const coinsAmount = document.getElementById('coins-amount');
+    
+    if (coinsCounter) coinsCounter.textContent = userSettings.coins;
+    if (coinsAmount) coinsAmount.textContent = userSettings.coins;
+}
     
     // Обновляем фоны
     document.querySelectorAll('.background-option').forEach(el => {
@@ -1104,6 +1114,8 @@ async function updateProfile() {
     // Инициализация игры с настройками по умолчанию
     userSettings = userSettings || { avatar: 1, background: 1, snakeSkin: 1 };
 }
+            setupShopTabs(); // Добавьте эту строку
+
         // В init() добавить:
 document.getElementById('shop-btn').addEventListener('click', () => {
     document.getElementById('coins-amount').textContent = userSettings.coins;
@@ -1861,13 +1873,13 @@ function getAvatarColor(avatarNum) {
         return;
     }
     
-    document.getElementById('coins-amount').textContent = userSettings.coins || 0;
+    // Обновляем баланс
+    updateCoinsDisplay();
     
-    // Очищаем и заполняем все разделы магазина
-    renderShopSection('avatars');
-    renderShopSection('backgrounds');
-    renderShopSection('snakeSkins');
+    // Загружаем товары
+    renderShopItems();
     
+    // Показываем модальное окно
     shopModal.style.display = 'flex';
 }
 
@@ -1962,33 +1974,34 @@ function createShopItem(type, item) {
 }
 
 // Обработка клика на предмет в магазине
-function handleShopItemClick(item, category, settingType) {
-    const unlockedKey = `unlocked${settingType.charAt(0).toUpperCase() + settingType.slice(1)}s`;
+function handleShopItemClick(type, item) {
+    // Проверяем, разблокирован ли предмет
+    const isUnlocked = userSettings.unlockedItems[type].includes(item.id);
     
-    // Если предмет уже разблокирован - выбираем его
-    if (userSettings[unlockedKey].includes(item.id)) {
-        userSettings[settingType] = item.id;
+    if (isUnlocked) {
+        // Если разблокирован - выбираем его
+        userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = item.id;
         applyProfileSettings();
-        showShopModal(); // Обновляем магазин
-        saveProfileSettings();
+        renderShopItems();
         showToast(`${item.name} выбран!`);
-        return;
-    }
-    
-    // Если предмет не разблокирован - проверяем, хватает ли монет
-    if (userSettings.coins >= item.price) {
-        if (confirm(`Купить ${item.name} за ${item.price} монет?`)) {
-            userSettings.coins -= item.price;
-            userSettings[unlockedKey].push(item.id);
-            userSettings[settingType] = item.id;
-            
-            saveProfileSettings().then(() => {
-                showShopModal(); // Обновляем магазин
-                showToast(`${item.name} куплен!`);
-            });
-        }
+        saveProfileSettings();
     } else {
-        showToast(`Недостаточно монет. Нужно ещё ${item.price - userSettings.coins}`);
+        // Если не разблокирован - пробуем купить
+        if (userSettings.coins >= item.price) {
+            if (confirm(`Купить ${item.name} за ${item.price} монет?`)) {
+                userSettings.coins -= item.price;
+                userSettings.unlockedItems[type].push(item.id);
+                userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = item.id;
+                
+                saveProfileSettings().then(() => {
+                    updateCoinsDisplay();
+                    renderShopItems();
+                    showToast(`${item.name} куплен!`);
+                });
+            }
+        } else {
+            showToast(`Недостаточно монет! Нужно ещё ${item.price - userSettings.coins}`);
+        }
     }
 }
         // Функция для открытия магазина
@@ -2118,6 +2131,23 @@ function getSnakeSkinColor(skinId) {
         function updateCoinsDisplay() {
     document.getElementById('coins-counter').textContent = userSettings.coins;
     document.getElementById('coins-amount').textContent = userSettings.coins;
+}
+        function setupShopTabs() {
+    const tabs = document.querySelectorAll('.shop-tab');
+    if (!tabs.length) return; // Если вкладок нет, выходим
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Убираем активный класс у всех вкладок
+            tabs.forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            // Добавляем активный класс текущей вкладке
+            tab.classList.add('active');
+            const tabContent = document.getElementById(`${tab.dataset.tab}-tab`);
+            if (tabContent) tabContent.classList.add('active');
+        });
+    });
 }
 
 // Вызывайте эту функцию при изменении баланса
