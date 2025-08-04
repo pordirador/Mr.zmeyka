@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка8</title>
+    <title>Змейка18</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -793,9 +793,9 @@ async function loadProfileSettings() {
             background: 1,
             snakeSkin: 1,
             unlockedItems: {
-                avatars: ["1"],
-                backgrounds: ["1"],
-                snakeSkins: ["1"]
+                avatars: [1],
+                backgrounds: [1],
+                skins: [1]
             }
         };
 
@@ -812,7 +812,7 @@ async function loadProfileSettings() {
             if (data.unlockedItems) {
                 userSettings.unlockedItems.avatars = data.unlockedItems.avatars?.map(Number) || [1];
                 userSettings.unlockedItems.backgrounds = data.unlockedItems.backgrounds?.map(Number) || [1];
-                userSettings.unlockedItems.snakeSkins = data.unlockedItems.snakeSkins?.map(Number) || [1];
+                userSettings.unlockedItems.skins = data.unlockedItems.skins?.map(Number) || [1];
             }
         }
         
@@ -925,9 +925,9 @@ async function saveProfileSettings() {
             background: userSettings.background,
             snakeSkin: userSettings.snakeSkin,
             unlockedItems: {
-                avatars: userSettings.unlockedItems.avatars,
-                backgrounds: userSettings.unlockedItems.backgrounds,
-                skins: userSettings.unlockedItems.skins
+                avatars: userSettings.unlockedItems.avatars.map(Number),
+                backgrounds: userSettings.unlockedItems.backgrounds.map(Number),
+                skins: userSettings.unlockedItems.skins.map(Number)
             }
         };
 
@@ -1575,6 +1575,7 @@ function update() {
         
         async function gameOver() {
     clearInterval(gameLoop);
+    updateCoinsDisplay();
     finalScoreElement.textContent = `Счёт: ${score}`;
     gameOverElement.style.display = 'flex';
     gameActive = false;
@@ -2081,7 +2082,7 @@ async function handleShopItemClick(category, item) {
         // Инициализируем настройки
         initUserSettings();
         
-        const isUnlocked = userSettings.unlockedItems[category].includes(item.id.toString());
+        const isUnlocked = userSettings.unlockedItems[category].includes(item.id);
         
         if (isUnlocked) {
             // Выбираем предмет
@@ -2100,7 +2101,7 @@ async function handleShopItemClick(category, item) {
             if (userSettings.coins >= item.price) {
                 if (confirm(`Купить ${item.name} за ${item.price} монет?`)) {
                     userSettings.coins -= item.price;
-                    userSettings.unlockedItems[category].push(item.id.toString());
+                    userSettings.unlockedItems[category].push(item.id);
                     
                     // Автоматически выбираем купленный предмет
                     if (category === 'skins') {
@@ -2317,9 +2318,9 @@ function initUserSettings() {
             background: 1,
             snakeSkin: 1,
             unlockedItems: {
-                avatars: ["1"],
-                backgrounds: ["1"],
-                skins: ["1"]
+                avatars: [1],
+                backgrounds: [1],
+                skins: [1]
             }
         };
     }
@@ -2327,15 +2328,15 @@ function initUserSettings() {
     // Инициализация отсутствующих полей
     if (!userSettings.unlockedItems) {
         userSettings.unlockedItems = {
-            avatars: ["1"],
-            backgrounds: ["1"],
-            skins: ["1"]
+            avatars: [1],
+            backgrounds: [1],
+            skins: [1]
         };
     }
     
-    if (!userSettings.unlockedItems.avatars) userSettings.unlockedItems.avatars = ["1"];
-    if (!userSettings.unlockedItems.backgrounds) userSettings.unlockedItems.backgrounds = ["1"];
-    if (!userSettings.unlockedItems.skins) userSettings.unlockedItems.skins = ["1"];
+    if (!userSettings.unlockedItems.avatars) userSettings.unlockedItems.avatars = [1];
+    if (!userSettings.unlockedItems.backgrounds) userSettings.unlockedItems.backgrounds = [1];
+    if (!userSettings.unlockedItems.skins) userSettings.unlockedItems.skins = [1];
 }
 
 // Вызывайте эту функцию при изменении баланса
