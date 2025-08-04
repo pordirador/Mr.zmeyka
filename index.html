@@ -787,20 +787,24 @@ async function loadProfileSettings() {
         const snapshot = await db.ref(`userSettings/${currentUser.id}`).once('value');
         if (snapshot.exists()) {
             const data = snapshot.val();
+            
+            // Преобразуем объекты Firebase обратно в массивы
+            const toArray = (obj) => obj ? Object.values(obj).map(Number) : [1];
+            
             userSettings = {
                 coins: Number(data.coins) || 0,
                 avatar: Number(data.avatar) || 1,
                 background: Number(data.background) || 1,
                 snakeSkin: Number(data.snakeSkin) || 1,
                 unlockedItems: {
-                    avatars: data.unlockedItems?.avatars?.map(Number) || [1],
-                    backgrounds: data.unlockedItems?.backgrounds?.map(Number) || [1],
-                    snakeSkins: data.unlockedItems?.snakeSkins?.map(Number) || [1]
+                    avatars: toArray(data.unlockedItems?.avatars),
+                    backgrounds: toArray(data.unlockedItems?.backgrounds),
+                    snakeSkins: toArray(data.unlockedItems?.snakeSkins)
                 },
                 inventory: {
-                    avatars: data.inventory?.avatars?.map(Number) || [1],
-                    backgrounds: data.inventory?.backgrounds?.map(Number) || [1],
-                    snakeSkins: data.inventory?.snakeSkins?.map(Number) || [1]
+                    avatars: toArray(data.inventory?.avatars),
+                    backgrounds: toArray(data.inventory?.backgrounds),
+                    snakeSkins: toArray(data.inventory?.snakeSkins)
                 }
             };
             applyProfileSettings();
@@ -902,28 +906,43 @@ async function saveProfileSettings() {
     if (!currentUser.id || currentUser.id.startsWith('local_')) return;
     
     try {
-        // Подготовка данных для сохранения
+        // Преобразуем массивы в объекты для Firebase
+        const unlockedItems = {};
+        userSettings.unlockedItems.avatars.forEach((item, index) => {
+            unlockedItems[`avatars/${index}`] = item.toString();
+        });
+        // Аналогично для других категорий...
+        
         const saveData = {
             coins: userSettings.coins,
             avatar: userSettings.avatar,
             background: userSettings.background,
             snakeSkin: userSettings.snakeSkin,
             unlockedItems: {
-                avatars: userSettings.unlockedItems.avatars.map(String),
-                backgrounds: userSettings.unlockedItems.backgrounds.map(String),
-                snakeSkins: userSettings.unlockedItems.snakeSkins.map(String)
+                avatars: unlockedItems.avatars || {0: "1"},
+                backgrounds: unlockedItems.backgrounds || {0: "1"},
+                snakeSkins: unlockedItems.snakeSkins || {0: "1"}
             },
             inventory: {
-                avatars: userSettings.inventory.avatars.map(String),
-                backgrounds: userSettings.inventory.backgrounds.map(String),
-                snakeSkins: userSettings.inventory.snakeSkins.map(String)
+                avatars: userSettings.inventory.avatars.reduce((obj, item, index) => {
+                    obj[index] = item.toString();
+                    return obj;
+                }, {}),
+                backgrounds: userSettings.inventory.backgrounds.reduce((obj, item, index) => {
+                    obj[index] = item.toString();
+                    return obj;
+                }, {}),
+                snakeSkins: userSettings.inventory.snakeSkins.reduce((obj, item, index) => {
+                    obj[index] = item.toString();
+                    return obj;
+                }, {})
             }
         };
         
         await db.ref(`userSettings/${currentUser.id}`).set(saveData);
     } catch (error) {
         console.error('Ошибка сохранения:', error);
-        throw error; // Перебрасываем ошибку для обработки в buyItem
+        throw error;
     }
 }
 
@@ -2179,46 +2198,30 @@ function loadShopItems(category) {
 
 
 // Функция покупки товара
-async function buyItem(type, itemId, price) {
-    try {
-        // Проверяем и инициализируем данные
-        userSettings.coins = Number(userSettings.coins) || 0;
-        
-        if (!userSettings.inventory) {
-            userSettings.inventory = {
-                avatars: [1],
-                backgrounds: [1],
-                snakeSkins: [1]
-            };
-        }
-        
-        if (!userSettings.inventory[type]) {
-            userSettings.inventory[type] = [1];
-        }
-
-        if (userSettings.coins < price) {
-            showToast('Недостаточно монет!');
+async function buyItem(type, id) {
+    if (!userSettings.unlockedItems[type].includes(id)) {
+        try {
+            // Создаем обновление только для нужных полей
+            const updates = {};
+            updates[`coins`] = userSettings.coins - 10;
+            updates[`unlockedItems/${type}/${userSettings.unlockedItems[type].length}`] = id;
+            
+            await db.ref(`userSettings/${currentUser.id}`).update(updates);
+            
+            // Обновляем локальные данные только после успешного сохранения
+            userSettings.coins -= 10;
+            userSettings.unlockedItems[type].push(id);
+            
+            showToast('Покупка успешна!');
+            applyProfileSettings();
+            return true;
+        } catch (error) {
+            console.error('Ошибка покупки:', error);
+            showToast('Ошибка покупки');
             return false;
         }
-
-        // Если предмет уже куплен
-        if (userSettings.inventory[type].includes(itemId)) {
-            return true;
-        }
-
-        // Совершаем покупку
-        userSettings.coins -= price;
-        userSettings.inventory[type].push(itemId);
-
-        // Сохраняем изменения
-        await saveProfileSettings();
-        showToast('Покупка успешна!');
-        return true;
-    } catch (error) {
-        console.error('Ошибка при покупке:', error);
-        showToast('Ошибка покупки');
-        return false;
     }
+    return true;
 }
 
 // Вспомогательные функции для стилей
@@ -2252,10 +2255,7 @@ function getSnakeSkinColor(skinId) {
 }
         function setupShopTabs() {
     const tabs = document.querySelectorAll('.shop-tab');
-    if (!tabs || tabs.length === 0) {
-        console.error('Вкладки магазина не найдены');
-        return;
-    }
+    if (!tabs || tabs.length === 0) return;
     
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
@@ -2267,8 +2267,11 @@ function getSnakeSkinColor(skinId) {
             tab.classList.add('active');
             const tabId = tab.dataset.tab;
             const tabContent = document.getElementById(`${tabId}-tab`);
+            
             if (tabContent) {
                 tabContent.classList.add('active');
+            } else {
+                console.error(`Не найден контейнер для вкладки: ${tabId}-tab`);
             }
         });
     });
