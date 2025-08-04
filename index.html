@@ -1997,71 +1997,48 @@ function renderShopItems() {
 
 // Отрисовка предметов в магазине
 function renderShopItems() {
-    // Проверяем существование контейнеров
-    const containers = {
-        avatars: document.getElementById('avatars-grid'),
-        backgrounds: document.getElementById('backgrounds-grid'),
-        snakeSkins: document.getElementById('skins-grid')
-    };
+    const categories = ['avatars', 'backgrounds', 'snakeSkins'];
     
-    for (const [type, container] of Object.entries(containers)) {
-        if (!container) {
-            console.error(`Container not found for ${type}`);
-            continue;
-        }
+    categories.forEach(category => {
+        const container = document.getElementById(`${category}-grid`);
+        if (!container) return;
         
         container.innerHTML = '';
         
-        const categoryItems = shopItems[type];
-        if (!categoryItems) {
-            console.error(`Category ${type} not found`);
-            continue;
-        }
-        
-        categoryItems.forEach(item => {
-            if (!item || item.id === undefined) {
-                console.error('Invalid item data', item);
-                return;
-            }
+        shopItems[category].forEach(item => {
+            const isUnlocked = userSettings.unlockedItems[category].includes(item.id);
+            const isSelected = (category === 'snakeSkins' ? 
+                userSettings.snakeSkin : userSettings[category]) === item.id;
             
-            const itemElement = document.createElement('div');
-            itemElement.className = 'shop-item';
-            itemElement.dataset.type = type;
-            itemElement.dataset.id = item.id;
+            const itemEl = document.createElement('div');
+            itemEl.className = `shop-item ${isUnlocked ? 'unlocked' : ''} ${isSelected ? 'selected' : ''}`;
+            itemEl.dataset.id = item.id;
+            itemEl.dataset.category = category;
             
-            // Проверяем, разблокирован ли предмет
-            const isUnlocked = userSettings.inventory?.[type]?.includes(item.id);
-            if (isUnlocked) {
-                itemElement.classList.add('unlocked');
-            }
-            
-            // Заполняем содержимое
-            if (type === 'avatars') {
-                itemElement.innerHTML = `
-                    <div class="item-icon" style="background: ${getAvatarColor(item.id)}">${item.id}</div>
-                    <div class="item-name">${item.name}</div>
-                    ${isUnlocked ? '<div class="item-status">Куплено</div>' : `<div class="item-price">${item.price} монет</div>`}
-                `;
-            } else if (type === 'backgrounds') {
-                itemElement.classList.add(`profile-bg-${item.id}`);
-                itemElement.innerHTML = `
-                    <div class="item-name">${item.name}</div>
-                    ${isUnlocked ? '' : `<div class="item-price">${item.price} монет</div>`}
-                `;
+            // Добавляем стиль в зависимости от типа
+            if (category === 'avatars') {
+                itemEl.style.background = getAvatarColor(item.id);
+                itemEl.textContent = item.id;
+            } else if (category === 'backgrounds') {
+                itemEl.classList.add(`profile-bg-${item.id}`);
             } else {
-                itemElement.classList.add(`snake-color-${item.id}`);
-                itemElement.innerHTML = `
-                    <div class="item-name">${item.name}</div>
-                    ${isUnlocked ? '' : `<div class="item-price">${item.price} монет</div>`}
-                `;
+                itemEl.classList.add(`snake-color-${item.id}`);
             }
             
-            // Добавляем обработчик
-            itemElement.addEventListener('click', handleShopItemClick);
-            container.appendChild(itemElement);
+            // Добавляем цену, если предмет не разблокирован
+            if (!isUnlocked) {
+                const priceTag = document.createElement('div');
+                priceTag.className = 'price-tag';
+                priceTag.textContent = item.price;
+                itemEl.appendChild(priceTag);
+            }
+            
+            itemEl.addEventListener('click', () => handleShopItemClick(category, item));
+            container.appendChild(itemEl);
         });
-    }
+    });
 }
+        
 function createShopItem(type, item) {
     // Инициализация unlockedItems, если не существует
     if (!userSettings.unlockedItems) {
@@ -2336,11 +2313,8 @@ function getSnakeSkinColor(skinId) {
 }
         function setupShopTabs() {
     const tabs = document.querySelectorAll('.shop-tab');
-    if (!tabs || tabs.length === 0) {
-        console.error('Shop tabs not found');
-        return;
-    }
-
+    if (!tabs) return;
+    
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
             // Убираем активный класс у всех вкладок
@@ -2350,10 +2324,7 @@ function getSnakeSkinColor(skinId) {
             // Добавляем активный класс текущей вкладке
             tab.classList.add('active');
             const tabId = tab.dataset.tab;
-            const tabContent = document.getElementById(`${tabId}-tab`);
-            if (tabContent) {
-                tabContent.classList.add('active');
-            }
+            document.getElementById(`${tabId}-tab`).classList.add('active');
         });
     });
 }
