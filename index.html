@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка2</title>
+    <title>Змейка3</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -546,16 +546,15 @@
         </div>
         
         <div class="shop-content">
-    <div id="avatars-tab" class="tab-content active">
-        <div class="items-grid" id="avatars-grid"></div>
-    </div>
-    <div id="backgrounds-tab" class="tab-content">
-        <div class="items-grid" id="backgrounds-grid"></div>
-    </div>
-    <div id="skins-tab" class="tab-content">
-        <div class="items-grid" id="snakeSkins-grid"></div>
-    </div>
-</div>
+            <div id="shop-avatars" class="tab-content active">
+                <div class="items-grid" id="avatars-grid"></div>
+            </div>
+            <div id="shop-backgrounds" class="tab-content">
+                <div class="items-grid" id="backgrounds-grid"></div>
+            </div>
+            <div id="shop-skins" class="tab-content">
+                <div class="items-grid" id="snakeSkins-grid"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -725,7 +724,7 @@ const shopItems = {
         { id: 5, name: "Серый градиент", price: 30 },
         { id: 6, name: "Коричневый градиент", price: 35 }
     ],
-    snakeSkins: [
+    skins: [
         { id: 1, name: "Зеленая змейка", price: 0, unlocked: true },
         { id: 2, name: "Синяя змейка", price: 10 },
         { id: 3, name: "Фиолетовая змейка", price: 15 },
@@ -1978,7 +1977,7 @@ function getAvatarColor(avatarNum) {
 }
         
 function renderShopItems() {
-    const categories = ['avatars', 'backgrounds', 'snakeSkins'];
+    const categories = ['avatars', 'backgrounds', 'skins'];
     
     categories.forEach(category => {
         const container = document.getElementById(`${category}-grid`);
@@ -1989,21 +1988,14 @@ function renderShopItems() {
         
         container.innerHTML = '';
         
-        // Проверяем существование категории в shopItems
         if (!shopItems[category]) {
             console.error(`Категория не найдена: ${category}`);
             return;
         }
         
         shopItems[category].forEach(item => {
-            // Проверяем, что item существует и имеет id
-            if (!item || item.id === undefined) {
-                console.error('Неверные данные предмета:', item);
-                return;
-            }
-            
             const isUnlocked = userSettings.unlockedItems[category]?.includes(item.id) || false;
-            const isSelected = (category === 'snakeSkins' ? 
+            const isSelected = (category === 'skins' ? 
                 userSettings.snakeSkin : userSettings[category]) === item.id;
             
             const itemEl = document.createElement('div');
@@ -2011,17 +2003,17 @@ function renderShopItems() {
             itemEl.dataset.id = item.id;
             itemEl.dataset.category = category;
             
-            // Добавляем стиль в зависимости от типа
+            // Стилизация в зависимости от типа товара
             if (category === 'avatars') {
                 itemEl.style.background = getAvatarColor(item.id);
                 itemEl.textContent = item.id;
             } else if (category === 'backgrounds') {
                 itemEl.classList.add(`profile-bg-${item.id}`);
-            } else if (category === 'snakeSkins') {
+            } else if (category === 'skins') {
                 itemEl.classList.add(`snake-color-${item.id}`);
             }
             
-            // Добавляем цену, если предмет не разблокирован
+            // Цена для заблокированных товаров
             if (!isUnlocked) {
                 const priceTag = document.createElement('div');
                 priceTag.className = 'price-tag';
@@ -2029,7 +2021,7 @@ function renderShopItems() {
                 itemEl.appendChild(priceTag);
             }
             
-            itemEl.addEventListener('click', (e) => handleShopItemClick(e, category, item));
+            itemEl.addEventListener('click', () => handleShopItemClick(category, item));
             container.appendChild(itemEl);
         });
     });
@@ -2251,6 +2243,21 @@ async function buyItem(type, itemId) {
         return false;
     }
 }
+        function showShopModal() {
+    if (!currentUser.id) {
+        showToast('Нужно подключение к интернету');
+        return;
+    }
+    
+    // Обновляем баланс
+    updateCoinsDisplay();  
+     
+    // Рендерим товары
+    renderShopItems(); 
+    // Показываем модальное окно
+    shopModal.style.display = 'flex'; 
+}
+
 
 // Вспомогательные функции для стилей
 function getAvatarColor(avatarId) {
@@ -2286,27 +2293,19 @@ function getSnakeSkinColor(skinId) {
     
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            // 1. Удаляем active у всех вкладок
+            // Убираем активный класс у всех вкладок
             document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             
-            // 2. Добавляем active текущей вкладке
+            // Добавляем активный класс текущей вкладке
             tab.classList.add('active');
-            
-            // 3. Находим соответствующий контент
             const tabId = tab.dataset.tab;
-            const contentId = `shop-${tabId}`; // или `${tabId}-tab` в зависимости от вашего HTML
-            const tabContent = document.getElementById(contentId);
+            const tabContent = document.getElementById(`shop-${tabId}`);
             
             if (tabContent) {
                 tabContent.classList.add('active');
             } else {
-                console.error(`Не найден контент для вкладки: ${contentId}`);
-                // Создаем элемент, если его нет (опционально)
-                const newTabContent = document.createElement('div');
-                newTabContent.id = contentId;
-                newTabContent.className = 'tab-content active';
-                document.querySelector('.shop-content').appendChild(newTabContent);
+                console.error(`Не найден контент для вкладки: shop-${tabId}`);
             }
         });
     });
