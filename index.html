@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка6</title>
+    <title>Змейка7</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -785,69 +785,72 @@ async function loadProfileSettings() {
     
     try {
         const snapshot = await db.ref(`userSettings/${currentUser.id}`).once('value');
+        
+        // Инициализация базовых настроек
+        userSettings = {
+            coins: 0,
+            avatar: 1,
+            background: 1,
+            snakeSkin: 1,
+            unlockedItems: {
+                avatars: ["1"],
+                backgrounds: ["1"],
+                snakeSkins: ["1"]
+            }
+        };
+
         if (snapshot.exists()) {
             const data = snapshot.val();
             
-            // Преобразуем объекты Firebase обратно в массивы
-            const toArray = (obj) => obj ? Object.values(obj).map(Number) : [1];
+            // Обновляем только существующие поля
+            if (data.coins) userSettings.coins = Number(data.coins);
+            if (data.avatar) userSettings.avatar = Number(data.avatar);
+            if (data.background) userSettings.background = Number(data.background);
+            if (data.snakeSkin) userSettings.snakeSkin = Number(data.snakeSkin);
             
-            userSettings = {
-                coins: Number(data.coins) || 0,
-                avatar: Number(data.avatar) || 1,
-                background: Number(data.background) || 1,
-                snakeSkin: Number(data.snakeSkin) || 1,
-                unlockedItems: {
-                    avatars: toArray(data.unlockedItems?.avatars),
-                    backgrounds: toArray(data.unlockedItems?.backgrounds),
-                    snakeSkins: toArray(data.unlockedItems?.snakeSkins)
-                },
-                inventory: {
-                    avatars: toArray(data.inventory?.avatars),
-                    backgrounds: toArray(data.inventory?.backgrounds),
-                    snakeSkins: toArray(data.inventory?.snakeSkins)
-                }
-            };
-            applyProfileSettings();
+            // Обновляем разблокированные предметы
+            if (data.unlockedItems) {
+                userSettings.unlockedItems.avatars = data.unlockedItems.avatars?.map(Number) || [1];
+                userSettings.unlockedItems.backgrounds = data.unlockedItems.backgrounds?.map(Number) || [1];
+                userSettings.unlockedItems.snakeSkins = data.unlockedItems.snakeSkins?.map(Number) || [1];
+            }
         }
+        
+        applyProfileSettings();
     } catch (error) {
         console.error('Ошибка загрузки настроек:', error);
+        // Применяем настройки по умолчанию
+        applyProfileSettings();
     }
 }
         
 // Применение настроек профиля
 function applyProfileSettings() {
-    // Показываем ID пользователя
-    if (currentUser.id) {
-        profileIdSpan.textContent = currentUser.id.substring(0, 8) + '...';
-    }
+    // Обновляем ID пользователя
+    profileIdSpan.textContent = currentUser.id 
+        ? currentUser.id.substring(0, 8) + '...' 
+        : 'Гость';
     
-    // Применяем выбранный фон (только если разблокирован)
+    // Обновляем имя в профиле
+    profileNameInput.value = currentUser.display_name || 'Гость';
+    
+    // Применяем фон
     document.body.className = '';
-    if (userSettings.unlockedItems.backgrounds.includes(userSettings.background)) {
-        document.body.classList.add(`profile-bg-${userSettings.background}`);
-    } else {
-        document.body.classList.add(`profile-bg-1`); // Фон по умолчанию
-    }
+    document.body.classList.add(`profile-bg-${userSettings.background}`);
     
-    // Обновляем аватары
-    document.querySelectorAll('.avatar-option').forEach(el => {
-        const avatarNum = parseInt(el.dataset.avatar);
-        const isUnlocked = userSettings.unlockedItems.avatars.includes(avatarNum);
-        
-        el.classList.toggle('locked', !isUnlocked);
-        el.classList.remove('selected');
-        
-        if (!isUnlocked) {
-            el.innerHTML = '<span class="price-tag">10</span>';
-        } else {
-            el.innerHTML = avatarNum;
-        }
-        
-        if (avatarNum === userSettings.avatar) {
-            el.classList.add('selected');
-        }
-    });
+    // Обновляем выбранные элементы в профиле
+    document.querySelectorAll('.avatar-option, .background-option, .snake-skin-option')
+        .forEach(el => el.classList.remove('selected'));
+    
+    document.querySelector(`.avatar-option[data-avatar="${userSettings.avatar}"]`)?.classList.add('selected');
+    document.querySelector(`.background-option[data-bg="${userSettings.background}"]`)?.classList.add('selected');
+    document.querySelector(`.snake-skin-option[data-skin="${userSettings.snakeSkin}"]`)?.classList.add('selected');
+    
+    // Обновляем монеты
     updateCoinsDisplay();
+    
+    // Перерисовываем игру, если она активна
+    if (gameActive) draw();
 }
 
 function updateCoinsDisplay() {
@@ -1807,37 +1810,35 @@ async function identifyUser() {
     if (!currentUser.id || currentUser.id.startsWith('local_') || score === 0) return;
     
     try {
-        // Проверяем существующий рекорд пользователя
+        // 1. Получаем текущий лучший результат пользователя
         const userScoresRef = db.ref('scores').orderByChild('user_id').equalTo(currentUser.id);
         const snapshot = await userScoresRef.once('value');
         
-        let shouldSave = true;
-        let existingScoreValue = 0;
+        let bestScore = 0;
+        let bestScoreKey = null;
         
         if (snapshot.exists()) {
-            let existingScoreKey = null;
-            
-            // Находим максимальный рекорд пользователя
             snapshot.forEach(child => {
-                if (child.val().score > existingScoreValue) {
-                    existingScoreValue = child.val().score;
-                    existingScoreKey = child.key;
+                const childScore = child.val().score;
+                if (childScore > bestScore) {
+                    bestScore = childScore;
+                    bestScoreKey = child.key;
                 }
             });
-            
-            // Если новый рекорд лучше старого - удаляем старый
-            if (score > existingScoreValue) {
-                await db.ref(`scores/${existingScoreKey}`).remove();
-            } else {
-                shouldSave = false; // Не сохраняем, если рекорд не улучшен
-            }
         }
         
-        if (shouldSave) {
+        // 2. Если новый результат лучше - сохраняем
+        if (score > bestScore) {
+            // Удаляем старый результат, если есть
+            if (bestScoreKey) {
+                await db.ref(`scores/${bestScoreKey}`).remove();
+            }
+            
+            // Сохраняем новый результат
             const newScore = {
                 user_id: currentUser.id,
                 display_name: currentUser.display_name,
-                avatar: userSettings.avatar, // Добавляем аватар
+                avatar: userSettings.avatar,
                 score: score,
                 date: firebase.database.ServerValue.TIMESTAMP
             };
@@ -1845,10 +1846,11 @@ async function identifyUser() {
             await db.ref('scores').push(newScore);
             showToast(`Новый рекорд: ${score} очков!`);
         } else {
-            showToast(`Ваш лучший рекорд: ${existingScoreValue} очков`);
+            showToast(`Ваш лучший рекорд: ${bestScore} очков`);
         }
         
-        loadLeaderboard(topPlayersList, 5); // Обновляем таблицу лидеров
+        // Обновляем таблицу лидеров
+        await loadLeaderboard(topPlayersList, 5);
     } catch (error) {
         console.error('Ошибка сохранения результата:', error);
         showToast('Не удалось сохранить результат');
@@ -2204,30 +2206,67 @@ function loadShopItems(category) {
 
 
 // Функция покупки товара
-async function buyItem(type, id) {
-    if (!userSettings.unlockedItems[type].includes(id)) {
-        try {
-            // Создаем обновление только для нужных полей
-            const updates = {};
-            updates[`coins`] = userSettings.coins - 10;
-            updates[`unlockedItems/${type}/${userSettings.unlockedItems[type].length}`] = id;
-            
-            await db.ref(`userSettings/${currentUser.id}`).update(updates);
-            
-            // Обновляем локальные данные только после успешного сохранения
-            userSettings.coins -= 10;
-            userSettings.unlockedItems[type].push(id);
-            
-            showToast('Покупка успешна!');
-            applyProfileSettings();
-            return true;
-        } catch (error) {
-            console.error('Ошибка покупки:', error);
-            showToast('Ошибка покупки');
-            return false;
-        }
+async function buyItem(category, itemId) {
+    if (!currentUser.id || currentUser.id.startsWith('local_')) {
+        showToast('Нужно подключение к интернету');
+        return false;
     }
-    return true;
+
+    // Находим предмет в магазине
+    const item = shopItems[category].find(i => i.id === itemId);
+    if (!item) {
+        showToast('Предмет не найден');
+        return false;
+    }
+
+    // Проверяем, не куплен ли уже предмет
+    if (userSettings.unlockedItems[category].includes(itemId)) {
+        showToast('Этот предмет уже куплен');
+        return true;
+    }
+
+    // Проверяем хватает ли монет
+    if (userSettings.coins < item.price) {
+        showToast(`Недостаточно монет! Нужно ещё ${item.price - userSettings.coins}`);
+        return false;
+    }
+
+    try {
+        // Обновляем локальные данные
+        userSettings.coins -= item.price;
+        userSettings.unlockedItems[category].push(itemId);
+        
+        // Автоматически выбираем купленный предмет
+        if (category === 'snakeSkins') {
+            userSettings.snakeSkin = itemId;
+        } else if (category === 'avatars') {
+            userSettings.avatar = itemId;
+        } else if (category === 'backgrounds') {
+            userSettings.background = itemId;
+        }
+
+        // Сохраняем в Firebase
+        const updates = {
+            coins: userSettings.coins,
+            [`unlockedItems/${category}`]: userSettings.unlockedItems[category],
+            [category === 'snakeSkins' ? 'snakeSkin' : category]: itemId
+        };
+        
+        await db.ref(`userSettings/${currentUser.id}`).update(updates);
+        
+        // Обновляем интерфейс
+        updateCoinsDisplay();
+        applyProfileSettings();
+        showToast(`${item.name} успешно куплен!`);
+        return true;
+    } catch (error) {
+        console.error('Ошибка покупки:', error);
+        // Откатываем изменения
+        userSettings.coins += item.price;
+        userSettings.unlockedItems[category] = userSettings.unlockedItems[category].filter(id => id !== itemId);
+        showToast('Ошибка при покупке');
+        return false;
+    }
 }
 
 // Вспомогательные функции для стилей
