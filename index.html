@@ -1165,6 +1165,8 @@ document.querySelectorAll('.shop-tab').forEach(tab => {
         document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.shop-tab-content').forEach(c => c.classList.remove('active'));
         setupShopTabs();
+        setupShopTabs();
+    document.getElementById('shop-btn').addEventListener('click', showShopModal);
 
         // Добавляем активный класс текущей вкладке
         tab.classList.add('active');
@@ -1173,7 +1175,7 @@ document.querySelectorAll('.shop-tab').forEach(tab => {
 });
 
             
-        // ========== ФУНКЦИИ ИНТЕРФЕЙСА ==========
+        // ========== ФУНКЦИИ ИНТЕРФЕЙСAAAAAAAAAAAAAAAAAAAAAAAAAAAА ==========
         // Загрузка настроек профиля
 async function loadProfileSettings() {
     if (!currentUser.id || currentUser.id.startsWith('local_')) return;
@@ -1654,43 +1656,55 @@ function update() {
         }, { passive: false });
         
         // ========== РАБОТА С FIREBASE ==========
-        async function identifyUser() {
-            try {
-                // Анонимная аутентификация
-                const userCredential = await auth.signInAnonymously();
-                const user = userCredential.user;
-                
-                // Проверяем, есть ли пользователь в базе
-                const userRef = db.ref(`users/${user.uid}`);
-                const snapshot = await userRef.once('value');
-                
-                if (snapshot.exists()) {
-                    currentUser = {
-                        id: user.uid,
-                        display_name: snapshot.val().display_name || `Игрок ${Math.floor(1000 + Math.random() * 9000)}`
-                    };
-                } else {
-                    // Создаем нового пользователя
-                    const displayName = `Игрок ${Math.floor(1000 + Math.random() * 9000)}`;
-                    await userRef.set({
-                        display_name: displayName,
-                        created_at: firebase.database.ServerValue.TIMESTAMP,
-                        last_login: firebase.database.ServerValue.TIMESTAMP
-                    });
-                    
-                    currentUser = {
-                        id: user.uid,
-                        display_name: displayName
-                    };
-                }
-                
-                updateProfileButton();
-                showToast(`Добро пожаловать, ${currentUser.display_name}!`);
-            } catch (error) {
-                console.error('Ошибка идентификации:', error);
-                setupOfflineUser();
+        // В функции identifyUser() добавьте инициализацию userSettings:
+async function identifyUser() {
+    try {
+        const userCredential = await auth.signInAnonymously();
+        const user = userCredential.user;
+        
+        const userRef = db.ref(`users/${user.uid}`);
+        const settingsRef = db.ref(`userSettings/${user.uid}`);
+        
+        const [userSnapshot, settingsSnapshot] = await Promise.all([
+            userRef.once('value'),
+            settingsRef.once('value')
+        ]);
+        
+        // Инициализация пользователя
+        currentUser = {
+            id: user.uid,
+            display_name: userSnapshot.exists() ? 
+                userSnapshot.val().display_name : 
+                `Игрок ${Math.floor(1000 + Math.random() * 9000)}`
+        };
+        
+        // Инициализация настроек
+        userSettings = settingsSnapshot.exists() ? settingsSnapshot.val() : {
+            avatar: 1,
+            background: 1,
+            snakeSkin: 1,
+            coins: 0,
+            inventory: {
+                avatars: [1],
+                backgrounds: [1],
+                snakeSkins: [1]
+            },
+            unlockedItems: {
+                avatars: [1],
+                backgrounds: [1],
+                snakeSkins: [1]
             }
-        }
+        };
+        
+        updateProfileButton();
+        applyProfileSettings();
+        updateCoinsDisplay();
+        
+    } catch (error) {
+        console.error('Ошибка идентификации:', error);
+        setupOfflineUser();
+    }
+}
 
         function setupOfflineUser() {
             currentUser = {
@@ -1931,7 +1945,7 @@ function getAvatarColor(avatarNum) {
     // Обновляем баланс
     updateCoinsDisplay();
     
-    // Загружаем товары
+    // Заполняем магазин
     renderShopItems();
     
     // Показываем модальное окно
@@ -1939,61 +1953,46 @@ function getAvatarColor(avatarNum) {
 }
 
 function renderShopItems() {
-    // Проверяем существование контейнеров
-    const containers = {
-        avatars: document.getElementById('avatars-grid'),
-        backgrounds: document.getElementById('backgrounds-grid'),
-        snakeSkins: document.getElementById('skins-grid')
-    };
+    const categories = ['avatars', 'backgrounds', 'snakeSkins'];
     
-    for (const [type, container] of Object.entries(containers)) {
-        if (!container) {
-            console.error(`Контейнер для ${type} не найден`);
-            continue;
-        }
+    categories.forEach(category => {
+        const container = document.getElementById(`${category}-grid`);
+        if (!container) return;
         
         container.innerHTML = '';
         
-        const categoryItems = shopItems[type];
-        if (!categoryItems) {
-            console.error(`Категория ${type} не найдена`);
-            continue;
-        }
-        
-        categoryItems.forEach(item => {
-            if (!item || !item.id) {
-                console.error('Неверный объект предмета', item);
-                return;
-            }
+        shopItems[category].forEach(item => {
+            const isUnlocked = userSettings.unlockedItems[category].includes(item.id);
+            const isSelected = (category === 'snakeSkins' ? 
+                userSettings.snakeSkin : userSettings[category]) === item.id;
             
-            const itemElement = document.createElement('div');
-            itemElement.className = 'shop-item';
-            itemElement.dataset.type = type;
-            itemElement.dataset.id = item.id;
+            const itemEl = document.createElement('div');
+            itemEl.className = `shop-item ${isUnlocked ? 'unlocked' : ''} ${isSelected ? 'selected' : ''}`;
+            itemEl.dataset.id = item.id;
+            itemEl.dataset.category = category;
             
-            // Добавляем обработчик
-            itemElement.addEventListener('click', handleShopItemClick);
-            
-            // Проверяем, разблокирован ли предмет
-            const isUnlocked = userSettings.inventory?.[type]?.includes(item.id.toString());
-            if (isUnlocked) {
-                itemElement.classList.add('unlocked');
-            }
-            
-            // Заполняем содержимое в зависимости от типа
-            if (type === 'avatars') {
-                itemElement.innerHTML = `
-                    <div class="item-icon" style="background: ${getAvatarColor(item.id)}">${item.id}</div>
-                    <div class="item-name">${item.name}</div>
-                    ${isUnlocked ? '<div class="item-status">Куплено</div>' : `<div class="item-price">${item.price} монет</div>`}
-                `;
+            // Добавляем стиль в зависимости от типа
+            if (category === 'avatars') {
+                itemEl.style.background = getAvatarColor(item.id);
+                itemEl.textContent = item.id;
+            } else if (category === 'backgrounds') {
+                itemEl.classList.add(`profile-bg-${item.id}`);
             } else {
-                // Аналогично для других типов
+                itemEl.classList.add(`snake-color-${item.id}`);
             }
             
-            container.appendChild(itemElement);
+            // Добавляем цену, если предмет не разблокирован
+            if (!isUnlocked) {
+                const priceTag = document.createElement('div');
+                priceTag.className = 'price-tag';
+                priceTag.textContent = item.price;
+                itemEl.appendChild(priceTag);
+            }
+            
+            itemEl.addEventListener('click', () => handleShopItemClick(category, item));
+            container.appendChild(itemEl);
         });
-    }
+    });
 }
 
 // Отрисовка предметов в магазине
@@ -2107,30 +2106,39 @@ function createShopItem(type, item) {
 }
 
 // Обработка клика на предмет в магазине
-function handleShopItemClick(type, item) {
-    // Проверяем, разблокирован ли предмет
-    const isUnlocked = userSettings.unlockedItems[type].includes(item.id);
+async function handleShopItemClick(category, item) {
+    const isUnlocked = userSettings.unlockedItems[category].includes(item.id);
     
     if (isUnlocked) {
-        // Если разблокирован - выбираем его
-        userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = item.id;
+        // Выбираем предмет
+        if (category === 'snakeSkins') {
+            userSettings.snakeSkin = item.id;
+        } else {
+            userSettings[category] = item.id;
+        }
+        
         applyProfileSettings();
         renderShopItems();
+        await saveProfileSettings();
         showToast(`${item.name} выбран!`);
-        saveProfileSettings();
     } else {
-        // Если не разблокирован - пробуем купить
+        // Пытаемся купить
         if (userSettings.coins >= item.price) {
             if (confirm(`Купить ${item.name} за ${item.price} монет?`)) {
                 userSettings.coins -= item.price;
-                userSettings.unlockedItems[type].push(item.id);
-                userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = item.id;
+                userSettings.unlockedItems[category].push(item.id);
                 
-                saveProfileSettings().then(() => {
-                    updateCoinsDisplay();
-                    renderShopItems();
-                    showToast(`${item.name} куплен!`);
-                });
+                // Автоматически выбираем купленный предмет
+                if (category === 'snakeSkins') {
+                    userSettings.snakeSkin = item.id;
+                } else {
+                    userSettings[category] = item.id;
+                }
+                
+                await saveProfileSettings();
+                updateCoinsDisplay();
+                renderShopItems();
+                showToast(`${item.name} куплен!`);
             }
         } else {
             showToast(`Недостаточно монет! Нужно ещё ${item.price - userSettings.coins}`);
@@ -2320,8 +2328,11 @@ function getSnakeSkinColor(skinId) {
     return colors[(skinId - 1) % colors.length];
 }
         function updateCoinsDisplay() {
-    document.getElementById('coins-counter').textContent = userSettings.coins;
-    document.getElementById('coins-amount').textContent = userSettings.coins;
+    const coinsCounter = document.getElementById('coins-counter');
+    const coinsAmount = document.getElementById('coins-amount');
+    
+    if (coinsCounter) coinsCounter.textContent = userSettings.coins || 0;
+    if (coinsAmount) coinsAmount.textContent = userSettings.coins || 0;
 }
         function setupShopTabs() {
     const tabs = document.querySelectorAll('.shop-tab');
