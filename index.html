@@ -724,7 +724,7 @@ const shopItems = {
         { id: 5, name: "Серый градиент", price: 1 },
         { id: 6, name: "Коричневый градиент", price: 1 }
     ],
-    skins: [
+    snakeSkins: [
         { id: 1, name: "Зеленая змейка", price: 0, unlocked: true },
         { id: 2, name: "Синяя змейка", price: 1 },
         { id: 3, name: "Фиолетовая змейка", price: 1 },
@@ -927,7 +927,7 @@ async function saveProfileSettings() {
             unlockedItems: {
                 avatars: userSettings.unlockedItems.avatars.map(Number),
                 backgrounds: userSettings.unlockedItems.backgrounds.map(Number),
-                skins: userSettings.unlockedItems.skins.map(Number)
+                snakeSkins: userSettings.unlockedItems.skins.map(Number)
             }
         };
 
@@ -2079,10 +2079,10 @@ function createShopItem(type, item) {
 // Обработка клика на предмет в магазине
 async function handleShopItemClick(category, item) {
     try {
-        // Инициализируем настройки
-        initUserSettings();
+        // Для категории скинов используем snakeSkins вместо skins
+        const targetCategory = category === 'skins' ? 'snakeSkins' : category;
         
-        const isUnlocked = userSettings.unlockedItems[category].includes(item.id);
+        const isUnlocked = userSettings.unlockedItems[targetCategory].includes(item.id.toString());
         
         if (isUnlocked) {
             // Выбираем предмет
@@ -2101,7 +2101,7 @@ async function handleShopItemClick(category, item) {
             if (userSettings.coins >= item.price) {
                 if (confirm(`Купить ${item.name} за ${item.price} монет?`)) {
                     userSettings.coins -= item.price;
-                    userSettings.unlockedItems[category].push(item.id);
+                    userSettings.unlockedItems[targetCategory].push(item.id.toString());
                     
                     // Автоматически выбираем купленный предмет
                     if (category === 'skins') {
