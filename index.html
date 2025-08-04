@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка1</title>
+    <title>Змейка2</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -1090,12 +1090,15 @@ async function updateProfile() {
     }
 }
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
-        function init() {
+        async function init() {
     // Настройка обработчиков событий для кнопок
     playBtn.addEventListener('click', startGame);
     leaderboardBtn.addEventListener('click', showFullLeaderboard);
     howToPlayBtn.addEventListener('click', () => howToPlayModal.style.display = 'flex');
-    document.getElementById('shop-btn').addEventListener('click', () => shopModal.style.display = 'flex'); // Добавленная строка
+    document.getElementById('shop-btn').addEventListener('click', () => {
+        document.getElementById('coins-amount').textContent = userSettings.coins;
+        shopModal.style.display = 'flex';
+    });
     profileBtn.addEventListener('click', showProfileModal);
     
     // Обработчики закрытия модальных окон
@@ -1121,19 +1124,36 @@ async function updateProfile() {
     window.addEventListener('resize', resizeCanvas);
     
     // Проверка соединения с Firebase
-    db.ref('.info/connected').on('value', (snap) => {
+    db.ref('.info/connected').on('value', async (snap) => {
         if (snap.val() === true) {
             console.log("Connected to Firebase");
-            identifyUser().then(() => {
-                loadProfileSettings().then(() => {
-                    applyProfileBackground();
-                    loadLeaderboard(topPlayersList, 5);
-                });
-            });
+            await identifyUser();
+            await loadProfileSettings();
+            applyProfileBackground();
+            loadLeaderboard(topPlayersList, 5);
+            
+            if (currentUser.id && !currentUser.id.startsWith('local_')) {
+                await loadInventory();
+            }
         } else {
             console.log("Disconnected from Firebase");
             setupOfflineUser();
-            userSettings = { avatar: 1, background: 1, snakeSkin: 1 };
+            userSettings = { 
+                avatar: 1, 
+                background: 1, 
+                snakeSkin: 1,
+                coins: 0,
+                inventory: {
+                    avatars: [1],
+                    backgrounds: [1],
+                    snakeSkins: [1]
+                },
+                unlockedItems: {
+                    avatars: [1],
+                    backgrounds: [1],
+                    snakeSkins: [1]
+                }
+            };
             applyProfileBackground();
         }
     });
@@ -1147,12 +1167,29 @@ async function updateProfile() {
         });
     });
     
+    // Настройка вкладок магазина
+    setupShopTabs();
+    document.querySelectorAll('.shop-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Убираем активный класс у всех вкладок
+            document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.shop-tab-content').forEach(c => c.classList.remove('active'));
+            
+            // Добавляем активный класс текущей вкладке
+            tab.classList.add('active');
+            const tabContent = document.getElementById(`shop-${tab.dataset.tab}`);
+            if (tabContent) {
+                tabContent.classList.add('active');
+            } else {
+                console.error(`Элемент shop-${tab.dataset.tab} не найден`);
+            }
+        });
+    });
+    
     // Инициализация игры с настройками по умолчанию
-    userSettings = userSettings || { avatar: 1, background: 1, snakeSkin: 1 };
-}
-        userSettings = {
-        avatar: 1,
-        background: 1,
+    userSettings = userSettings || { 
+        avatar: 1, 
+        background: 1, 
         snakeSkin: 1,
         coins: 0,
         inventory: {
@@ -1166,37 +1203,7 @@ async function updateProfile() {
             snakeSkins: [1]
         }
     };
-        if (currentUser.id && !currentUser.id.startsWith('local_')) {
-        await loadInventory();
-    }
-
-
-        // В init() добавить:
-document.getElementById('shop-btn').addEventListener('click', () => {
-    document.getElementById('coins-amount').textContent = userSettings.coins;
-    shopModal.style.display = 'flex';
-});
-        // В init() добавьте:
-document.querySelectorAll('.shop-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        // Убираем активный класс у всех вкладок
-        document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.shop-tab-content').forEach(c => c.classList.remove('active'));
-        setupShopTabs();
-        setupShopTabs();
-    document.getElementById('shop-btn').addEventListener('click', showShopModal);
-
-        // Добавляем активный класс текущей вкладке
-        tab.classList.add('active');
-        // Замените строку 1192 на:
-const tabContent = document.getElementById(`shop-${tab.dataset.tab}`);
-if (tabContent) {
-    tabContent.classList.add('active');
-} else {
-    console.error(`Элемент shop-${tab.dataset.tab} не найден`);
 }
-    });
-});
 
             
         // ========== ФУНКЦИИ ИНТЕРФЕЙСAAAAAAAAAAAAAAAAAAAAAAAAAAAА ==========
