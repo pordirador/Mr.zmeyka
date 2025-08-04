@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка7</title>
+    <title>Змейка8</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -546,14 +546,15 @@
         </div>
         
         <div class="shop-content">
-            <div id="avatars-tab" class="tab-content active">
-                <div class="items-grid" id="avatars-grid"></div>
-            </div>
-            <div id="backgrounds-tab" class="tab-content">
-                <div class="items-grid" id="backgrounds-grid"></div>
-            </div>
-            <div id="shop-skins" class="tab-content">
-    <div class="items-grid" id="snakeSkins-grid"></div>
+    <div id="avatars-tab" class="tab-content active">
+        <div class="items-grid" id="avatars-grid"></div>
+    </div>
+    <div id="backgrounds-tab" class="tab-content">
+        <div class="items-grid" id="backgrounds-grid"></div>
+    </div>
+    <div id="skins-tab" class="tab-content">
+        <div class="items-grid" id="snakeSkins-grid"></div>
+    </div>
 </div>
         </div>
     </div>
@@ -907,45 +908,29 @@ function updateCoinsDisplay() {
 // Сохранение настроек профиля
 async function saveProfileSettings() {
     if (!currentUser.id || currentUser.id.startsWith('local_')) return;
-    
+
     try {
-        // Преобразуем массивы в объекты для Firebase
-        const unlockedItems = {};
-        userSettings.unlockedItems.avatars.forEach((item, index) => {
-            unlockedItems[`avatars/${index}`] = item.toString();
-        });
-        // Аналогично для других категорий...
-        
+        // Гарантируем правильную структуру перед сохранением
+        initUserSettings();
+
         const saveData = {
             coins: userSettings.coins,
             avatar: userSettings.avatar,
             background: userSettings.background,
             snakeSkin: userSettings.snakeSkin,
             unlockedItems: {
-                avatars: unlockedItems.avatars || {0: "1"},
-                backgrounds: unlockedItems.backgrounds || {0: "1"},
-                snakeSkins: unlockedItems.snakeSkins || {0: "1"}
-            },
-            inventory: {
-                avatars: userSettings.inventory.avatars.reduce((obj, item, index) => {
-                    obj[index] = item.toString();
-                    return obj;
-                }, {}),
-                backgrounds: userSettings.inventory.backgrounds.reduce((obj, item, index) => {
-                    obj[index] = item.toString();
-                    return obj;
-                }, {}),
-                snakeSkins: userSettings.inventory.snakeSkins.reduce((obj, item, index) => {
-                    obj[index] = item.toString();
-                    return obj;
-                }, {})
+                avatars: userSettings.unlockedItems.avatars,
+                backgrounds: userSettings.unlockedItems.backgrounds,
+                snakeSkins: userSettings.unlockedItems.snakeSkins
             }
         };
-        
+
         await db.ref(`userSettings/${currentUser.id}`).set(saveData);
+        return true;
     } catch (error) {
-        console.error('Ошибка сохранения:', error);
-        throw error;
+        console.error("Ошибка сохранения настроек:", error);
+        showToast("Ошибка сохранения");
+        return false;
     }
 }
 
@@ -2207,52 +2192,41 @@ function loadShopItems(category) {
 
 // Функция покупки товара
 async function buyItem(category, itemId) {
-    if (!currentUser.id || currentUser.id.startsWith('local_')) {
-        showToast('Нужно подключение к интернету');
-        return false;
-    }
-
-    // Находим предмет в магазине
-    const item = shopItems[category].find(i => i.id === itemId);
-    if (!item) {
-        showToast('Предмет не найден');
-        return false;
-    }
-
-    // Проверяем, не куплен ли уже предмет
-    if (userSettings.unlockedItems[category].includes(itemId)) {
-        showToast('Этот предмет уже куплен');
-        return true;
-    }
-
-    // Проверяем хватает ли монет
-    if (userSettings.coins < item.price) {
-        showToast(`Недостаточно монет! Нужно ещё ${item.price - userSettings.coins}`);
-        return false;
-    }
-
     try {
-        // Обновляем локальные данные
-        userSettings.coins -= item.price;
-        userSettings.unlockedItems[category].push(itemId);
-        
-        // Автоматически выбираем купленный предмет
-        if (category === 'snakeSkins') {
-            userSettings.snakeSkin = itemId;
-        } else if (category === 'avatars') {
-            userSettings.avatar = itemId;
-        } else if (category === 'backgrounds') {
-            userSettings.background = itemId;
+        // Проверяем входные данные
+        if (!category || !itemId) {
+            throw new Error("Не указана категория или ID предмета");
         }
 
+        // Находим предмет в магазине
+        const item = shopItems[category].find(i => i.id === itemId);
+        if (!item) {
+            showToast("Предмет не найден");
+            return false;
+        }
+
+        // Проверяем, не куплен ли уже предмет
+        if (userSettings.unlockedItems[category].includes(itemId)) {
+            // Если уже куплен - просто выбираем его
+            userSettings[category === 'snakeSkins' ? 'snakeSkin' : category] = itemId;
+            await saveProfileSettings();
+            applyProfileSettings();
+            return true;
+        }
+
+        // Проверяем достаточно ли монет
+        if (userSettings.coins < item.price) {
+            showToast(`Недостаточно монет! Нужно ещё ${item.price - userSettings.coins}`);
+            return false;
+        }
+
+        // Выполняем покупку
+        userSettings.coins -= item.price;
+        userSettings.unlockedItems[category].push(itemId);
+        userSettings[category === 'snakeSkins' ? 'snakeSkin' : category] = itemId;
+
         // Сохраняем в Firebase
-        const updates = {
-            coins: userSettings.coins,
-            [`unlockedItems/${category}`]: userSettings.unlockedItems[category],
-            [category === 'snakeSkins' ? 'snakeSkin' : category]: itemId
-        };
-        
-        await db.ref(`userSettings/${currentUser.id}`).update(updates);
+        await saveProfileSettings();
         
         // Обновляем интерфейс
         updateCoinsDisplay();
@@ -2260,11 +2234,8 @@ async function buyItem(category, itemId) {
         showToast(`${item.name} успешно куплен!`);
         return true;
     } catch (error) {
-        console.error('Ошибка покупки:', error);
-        // Откатываем изменения
-        userSettings.coins += item.price;
-        userSettings.unlockedItems[category] = userSettings.unlockedItems[category].filter(id => id !== itemId);
-        showToast('Ошибка при покупке');
+        console.error("Ошибка покупки:", error);
+        showToast("Ошибка при покупке");
         return false;
     }
 }
