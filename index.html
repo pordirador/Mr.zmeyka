@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка19</title>
+    <title>Змейка20</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -795,7 +795,7 @@ async function loadProfileSettings() {
             unlockedItems: {
                 avatars: [1],
                 backgrounds: [1],
-                skins: [1]
+                snakeSkins: [1]
             }
         };
 
@@ -916,21 +916,20 @@ async function saveProfileSettings() {
     if (!currentUser.id || currentUser.id.startsWith('local_')) return;
 
     try {
-        // Гарантируем правильную структуру перед сохранением
-        initUserSettings();
-
+        // Приводим данные к правильному формату
         const saveData = {
             coins: userSettings.coins,
             avatar: userSettings.avatar,
             background: userSettings.background,
             snakeSkin: userSettings.snakeSkin,
             unlockedItems: {
-                avatars: userSettings.unlockedItems.avatars.map(Number),
-                backgrounds: userSettings.unlockedItems.backgrounds.map(Number),
-                snakeSkins: userSettings.unlockedItems.skins.map(Number)
+                avatars: userSettings.unlockedItems.avatars.map(String),
+                backgrounds: userSettings.unlockedItems.backgrounds.map(String),
+                snakeSkins: userSettings.unlockedItems.snakeSkins.map(String)
             }
         };
 
+        console.log("Saving data:", saveData);  // Для отладки
         await db.ref(`userSettings/${currentUser.id}`).set(saveData);
         return true;
     } catch (error) {
@@ -939,6 +938,7 @@ async function saveProfileSettings() {
         return false;
     }
 }
+        
 // Обработчики выбора настроек
 // Настройка обработчиков выбора в профиле
 function setupProfileOptions() {
@@ -2079,10 +2079,11 @@ function createShopItem(type, item) {
 // Обработка клика на предмет в магазине
 async function handleShopItemClick(category, item) {
     try {
-        // Для категории скинов используем snakeSkins вместо skins
+        // Для категории скинов используем snakeSkins
         const targetCategory = category === 'skins' ? 'snakeSkins' : category;
         
-        const isUnlocked = userSettings.unlockedItems[targetCategory].includes(item.id.toString());
+        // Проверяем, разблокирован ли предмет
+        const isUnlocked = userSettings.unlockedItems[targetCategory]?.includes(item.id.toString());
         
         if (isUnlocked) {
             // Выбираем предмет
@@ -2101,6 +2102,12 @@ async function handleShopItemClick(category, item) {
             if (userSettings.coins >= item.price) {
                 if (confirm(`Купить ${item.name} за ${item.price} монет?`)) {
                     userSettings.coins -= item.price;
+                    
+                    // Инициализируем массив, если его нет
+                    if (!userSettings.unlockedItems[targetCategory]) {
+                        userSettings.unlockedItems[targetCategory] = [];
+                    }
+                    
                     userSettings.unlockedItems[targetCategory].push(item.id.toString());
                     
                     // Автоматически выбираем купленный предмет
@@ -2318,9 +2325,9 @@ function initUserSettings() {
             background: 1,
             snakeSkin: 1,
             unlockedItems: {
-                avatars: [1],
-                backgrounds: [1],
-                skins: [1]
+                avatars: ["1"],
+                backgrounds: ["1"],
+                snakeSkins: ["1"]
             }
         };
     }
@@ -2328,15 +2335,15 @@ function initUserSettings() {
     // Инициализация отсутствующих полей
     if (!userSettings.unlockedItems) {
         userSettings.unlockedItems = {
-            avatars: [1],
-            backgrounds: [1],
-            skins: [1]
+            avatars: ["1"],
+            backgrounds: ["1"],
+            snakeSkins: ["1"]
         };
     }
     
-    if (!userSettings.unlockedItems.avatars) userSettings.unlockedItems.avatars = [1];
-    if (!userSettings.unlockedItems.backgrounds) userSettings.unlockedItems.backgrounds = [1];
-    if (!userSettings.unlockedItems.skins) userSettings.unlockedItems.skins = [1];
+    if (!userSettings.unlockedItems.avatars) userSettings.unlockedItems.avatars = ["1"];
+    if (!userSettings.unlockedItems.backgrounds) userSettings.unlockedItems.backgrounds = ["1"];
+    if (!userSettings.unlockedItems.snakeSkins) userSettings.unlockedItems.snakeSkins = ["1"];
 }
 
 // Вызывайте эту функцию при изменении баланса
