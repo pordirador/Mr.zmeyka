@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка8</title>
+    <title>Змейка9</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -849,6 +849,13 @@ function applyProfileSettings() {
     
     // Обновляем монеты
     updateCoinsDisplay();
+    document.querySelectorAll('.avatar-option, .background-option, .snake-skin-option').forEach(el => {
+        const type = el.classList.contains('avatar-option') ? 'avatars' : 
+                    el.classList.contains('background-option') ? 'backgrounds' : 'snakeSkins';
+        const id = parseInt(el.dataset[type.slice(0, -1)]);
+        
+        el.classList.toggle('locked', !userSettings.unlockedItems[type].includes(id));
+    });
     
     // Перерисовываем игру, если она активна
     if (gameActive) draw();
@@ -1159,6 +1166,10 @@ async function updateProfile() {
             snakeSkins: [1]
         }
     };
+         if (currentUser.id && !currentUser.id.startsWith('local_')) {
+        await loadInventory();
+    }
+}
 
         // В init() добавить:
 document.getElementById('shop-btn').addEventListener('click', () => {
@@ -2191,51 +2202,45 @@ function loadShopItems(category) {
 
 
 // Функция покупки товара
-async function buyItem(category, itemId) {
+async function buyItem(type, itemId) {
     try {
-        // Проверяем входные данные
-        if (!category || !itemId) {
-            throw new Error("Не указана категория или ID предмета");
-        }
-
-        // Находим предмет в магазине
-        const item = shopItems[category].find(i => i.id === itemId);
-        if (!item) {
-            showToast("Предмет не найден");
-            return false;
-        }
-
-        // Проверяем, не куплен ли уже предмет
-        if (userSettings.unlockedItems[category].includes(itemId)) {
-            // Если уже куплен - просто выбираем его
-            userSettings[category === 'snakeSkins' ? 'snakeSkin' : category] = itemId;
-            await saveProfileSettings();
-            applyProfileSettings();
+        // Проверяем, есть ли уже этот предмет
+        if (userSettings.unlockedItems[type].includes(itemId)) {
             return true;
         }
 
-        // Проверяем достаточно ли монет
-        if (userSettings.coins < item.price) {
-            showToast(`Недостаточно монет! Нужно ещё ${item.price - userSettings.coins}`);
+        // Находим цену предмета
+        const item = shopItems[type].find(i => i.id === itemId);
+        if (!item) {
+            showToast('Предмет не найден');
             return false;
         }
 
-        // Выполняем покупку
-        userSettings.coins -= item.price;
-        userSettings.unlockedItems[category].push(itemId);
-        userSettings[category === 'snakeSkins' ? 'snakeSkin' : category] = itemId;
+        // Проверяем баланс
+        if (userSettings.coins < item.price) {
+            showToast('Недостаточно монет');
+            return false;
+        }
 
-        // Сохраняем в Firebase
-        await saveProfileSettings();
+        // Обновляем локальные данные
+        userSettings.coins -= item.price;
+        userSettings.unlockedItems[type].push(itemId);
         
+        // Сохраняем на сервере
+        await Promise.all([
+            db.ref(`userSettings/${currentUser.id}/coins`).set(userSettings.coins),
+            db.ref(`userSettings/${currentUser.id}/unlockedItems/${type}`).set(userSettings.unlockedItems[type])
+        ]);
+
         // Обновляем интерфейс
         updateCoinsDisplay();
-        applyProfileSettings();
-        showToast(`${item.name} успешно куплен!`);
+        renderShopItems();
+        showToast('Покупка успешна!');
         return true;
+        
     } catch (error) {
-        console.error("Ошибка покупки:", error);
-        showToast("Ошибка при покупке");
+        console.error('Ошибка покупки:', error);
+        showToast('Ошибка покупки');
         return false;
     }
 }
@@ -2298,6 +2303,19 @@ function getSnakeSkinColor(skinId) {
             }
         });
     });
+}
+        async function loadInventory() {
+    if (!currentUser.id) return;
+    
+    try {
+        const snapshot = await db.ref(`userSettings/${currentUser.id}/unlockedItems`).once('value');
+        if (snapshot.exists()) {
+            userSettings.unlockedItems = snapshot.val();
+            applyProfileSettings();
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки инвентаря:', error);
+    }
 }
 
 // Вызывайте эту функцию при изменении баланса
