@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка5</title>
+    <title>Змейка6</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -553,7 +553,7 @@
                 <div class="items-grid" id="backgrounds-grid"></div>
             </div>
             <div id="shop-skins" class="tab-content">
-                <div class="items-grid" id="skins-grid"></div>
+                <div class="items-grid" id="skins-grid"></div> <!-- Изменили snakeSkins-grid на skins-grid -->
             </div>
         </div>
     </div>
@@ -724,7 +724,7 @@ const shopItems = {
         { id: 5, name: "Серый градиент", price: 1 },
         { id: 6, name: "Коричневый градиент", price: 1 }
     ],
-    snakeSkins: [
+    Skins: [
         { id: 1, name: "Зеленая змейка", price: 0, unlocked: true },
         { id: 2, name: "Синяя змейка", price: 1 },
         { id: 3, name: "Фиолетовая змейка", price: 1 },
@@ -927,7 +927,7 @@ async function saveProfileSettings() {
             unlockedItems: {
                 avatars: userSettings.unlockedItems.avatars,
                 backgrounds: userSettings.unlockedItems.backgrounds,
-                snakeSkins: userSettings.unlockedItems.snakeSkins
+                skins: userSettings.unlockedItems.skins
             }
         };
 
@@ -939,7 +939,6 @@ async function saveProfileSettings() {
         return false;
     }
 }
-
 // Обработчики выбора настроек
 // Настройка обработчиков выбора в профиле
 function setupProfileOptions() {
@@ -1977,43 +1976,47 @@ function getAvatarColor(avatarNum) {
 }
         
 function renderShopItems() {
-    const categories = ['avatars', 'backgrounds', 'snakeSkins']
+    const categories = [
+        { id: 'avatars', key: 'avatars' },
+        { id: 'backgrounds', key: 'backgrounds' },
+        { id: 'skins', key: 'skins' } // Используем 'skins' вместо 'snakeSkins'
+    ];
     
     categories.forEach(category => {
-        const container = document.getElementById(`${category}-grid`);
+        const container = document.getElementById(`${category.id}-grid`);
         if (!container) {
-            console.error(`Контейнер не найден: ${category}-grid`);
+            console.error(`Контейнер не найден: ${category.id}-grid`);
             return;
         }
         
         container.innerHTML = '';
         
-        if (!shopItems[category]) {
-            console.error(`Категория не найдена: ${category}`);
+        if (!shopItems[category.key]) {
+            console.error(`Категория не найдена: ${category.key}`);
             return;
         }
         
-        shopItems[category].forEach(item => {
-            const isUnlocked = userSettings.unlockedItems[category]?.includes(item.id) || false;
-            const isSelected = (category === 'skins' ? 
-                userSettings.snakeSkin : userSettings[category]) === item.id;
+        shopItems[category.key].forEach(item => {
+            const isUnlocked = userSettings.unlockedItems[category.key]?.includes(item.id.toString());
+            const isSelected = (category.key === 'skins' ? 
+                userSettings.snakeSkin : userSettings[category.key]) === item.id;
             
             const itemEl = document.createElement('div');
             itemEl.className = `shop-item ${isUnlocked ? 'unlocked' : ''} ${isSelected ? 'selected' : ''}`;
             itemEl.dataset.id = item.id;
-            itemEl.dataset.category = category;
+            itemEl.dataset.category = category.key;
             
-            // Стилизация в зависимости от типа товара
-            if (category === 'avatars') {
+            // Добавляем стиль в зависимости от типа
+            if (category.key === 'avatars') {
                 itemEl.style.background = getAvatarColor(item.id);
                 itemEl.textContent = item.id;
-            } else if (category === 'backgrounds') {
+            } else if (category.key === 'backgrounds') {
                 itemEl.classList.add(`profile-bg-${item.id}`);
-            } else if (category === 'skins') {
+            } else if (category.key === 'skins') {
                 itemEl.classList.add(`snake-color-${item.id}`);
             }
             
-            // Цена для заблокированных товаров
+            // Добавляем цену, если предмет не разблокирован
             if (!isUnlocked) {
                 const priceTag = document.createElement('div');
                 priceTag.className = 'price-tag';
@@ -2021,7 +2024,7 @@ function renderShopItems() {
                 itemEl.appendChild(priceTag);
             }
             
-            itemEl.addEventListener('click', () => handleShopItemClick(category, item));
+            itemEl.addEventListener('click', () => handleShopItemClick(category.key, item));
             container.appendChild(itemEl);
         });
     });
@@ -2075,30 +2078,14 @@ function createShopItem(type, item) {
 // Обработка клика на предмет в магазине
 async function handleShopItemClick(category, item) {
     try {
-        // Проверяем, что category и item существуют
-        if (!category || !item || !item.id) {
-            console.error('Неверные данные предмета:', {category, item});
-            return;
-        }
+        // Инициализируем настройки
+        initUserSettings();
         
-        // Инициализируем unlockedItems, если не существует
-        if (!userSettings.unlockedItems) {
-            userSettings.unlockedItems = {
-                avatars: [1],
-                backgrounds: [1],
-                snakeSkins: [1]
-            };
-        }
-        
-        if (!userSettings.unlockedItems[category]) {
-            userSettings.unlockedItems[category] = [1];
-        }
-        
-        const isUnlocked = userSettings.unlockedItems[category].includes(item.id);
+        const isUnlocked = userSettings.unlockedItems[category].includes(item.id.toString());
         
         if (isUnlocked) {
             // Выбираем предмет
-            if (category === 'snakeSkins') {
+            if (category === 'skins') {
                 userSettings.snakeSkin = item.id;
             } else {
                 userSettings[category] = item.id;
@@ -2113,10 +2100,10 @@ async function handleShopItemClick(category, item) {
             if (userSettings.coins >= item.price) {
                 if (confirm(`Купить ${item.name} за ${item.price} монет?`)) {
                     userSettings.coins -= item.price;
-                    userSettings.unlockedItems[category].push(item.id);
+                    userSettings.unlockedItems[category].push(item.id.toString());
                     
                     // Автоматически выбираем купленный предмет
-                    if (category === 'snakeSkins') {
+                    if (category === 'skins') {
                         userSettings.snakeSkin = item.id;
                     } else {
                         userSettings[category] = item.id;
@@ -2293,17 +2280,21 @@ function getSnakeSkinColor(skinId) {
             
             // Добавляем активный класс текущей вкладке
             tab.classList.add('active');
+            
+            // Находим соответствующий контент
             const tabId = tab.dataset.tab;
-            const tabContent = document.getElementById(`shop-${tabId}`);
+            const contentId = `shop-${tabId}`;
+            const tabContent = document.getElementById(contentId);
             
             if (tabContent) {
                 tabContent.classList.add('active');
             } else {
-                console.error(`Не найден контент для вкладки: shop-${tabId}`);
+                console.error(`Не найден контент для вкладки: ${contentId}`);
             }
         });
     });
 }
+        
         async function loadInventory() {
     if (!currentUser.id) return;
     
@@ -2316,6 +2307,35 @@ function getSnakeSkinColor(skinId) {
     } catch (error) {
         console.error('Ошибка загрузки инвентаря:', error);
     }
+}
+        // Добавьте эту функцию для инициализации настроек пользователя
+function initUserSettings() {
+    if (!userSettings) {
+        userSettings = {
+            coins: 0,
+            avatar: 1,
+            background: 1,
+            snakeSkin: 1,
+            unlockedItems: {
+                avatars: ["1"],
+                backgrounds: ["1"],
+                skins: ["1"]
+            }
+        };
+    }
+    
+    // Инициализация отсутствующих полей
+    if (!userSettings.unlockedItems) {
+        userSettings.unlockedItems = {
+            avatars: ["1"],
+            backgrounds: ["1"],
+            skins: ["1"]
+        };
+    }
+    
+    if (!userSettings.unlockedItems.avatars) userSettings.unlockedItems.avatars = ["1"];
+    if (!userSettings.unlockedItems.backgrounds) userSettings.unlockedItems.backgrounds = ["1"];
+    if (!userSettings.unlockedItems.skins) userSettings.unlockedItems.skins = ["1"];
 }
 
 // Вызывайте эту функцию при изменении баланса
