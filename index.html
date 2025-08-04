@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка9</title>
+    <title>Змейка1</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -1166,10 +1166,10 @@ async function updateProfile() {
             snakeSkins: [1]
         }
     };
-         if (currentUser.id && !currentUser.id.startsWith('local_')) {
+        if (currentUser.id && !currentUser.id.startsWith('local_')) {
         await loadInventory();
     }
-}
+
 
         // В init() добавить:
 document.getElementById('shop-btn').addEventListener('click', () => {
