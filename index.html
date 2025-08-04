@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка5</title>
+    <title>Змейка6</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -552,7 +552,7 @@
             <div id="backgrounds-tab" class="tab-content">
                 <div class="items-grid" id="backgrounds-grid"></div>
             </div>
-            <div id="skins-tab" class="tab-content">
+            <div id="shop-skins" class="tab-content">
     <div class="items-grid" id="snakeSkins-grid"></div>
 </div>
         </div>
@@ -1189,7 +1189,13 @@ document.querySelectorAll('.shop-tab').forEach(tab => {
 
         // Добавляем активный класс текущей вкладке
         tab.classList.add('active');
-        document.getElementById(`shop-${tab.dataset.tab}`).classList.add('active');
+        // Замените строку 1192 на:
+const tabContent = document.getElementById(`shop-${tab.dataset.tab}`);
+if (tabContent) {
+    tabContent.classList.add('active');
+} else {
+    console.error(`Элемент shop-${tab.dataset.tab} не найден`);
+}
     });
 });
 
@@ -2255,23 +2261,30 @@ function getSnakeSkinColor(skinId) {
 }
         function setupShopTabs() {
     const tabs = document.querySelectorAll('.shop-tab');
-    if (!tabs || tabs.length === 0) return;
     
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            // Убираем активный класс у всех вкладок
-            tabs.forEach(t => t.classList.remove('active'));
+            // 1. Удаляем active у всех вкладок
+            document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             
-            // Добавляем активный класс текущей вкладке
+            // 2. Добавляем active текущей вкладке
             tab.classList.add('active');
+            
+            // 3. Находим соответствующий контент
             const tabId = tab.dataset.tab;
-            const tabContent = document.getElementById(`${tabId}-tab`);
+            const contentId = `shop-${tabId}`; // или `${tabId}-tab` в зависимости от вашего HTML
+            const tabContent = document.getElementById(contentId);
             
             if (tabContent) {
                 tabContent.classList.add('active');
             } else {
-                console.error(`Не найден контейнер для вкладки: ${tabId}-tab`);
+                console.error(`Не найден контент для вкладки: ${contentId}`);
+                // Создаем элемент, если его нет (опционально)
+                const newTabContent = document.createElement('div');
+                newTabContent.id = contentId;
+                newTabContent.className = 'tab-content active';
+                document.querySelector('.shop-content').appendChild(newTabContent);
             }
         });
     });
