@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка3</title>
+    <title>Змейка4</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -553,7 +553,7 @@
                 <div class="items-grid" id="backgrounds-grid"></div>
             </div>
             <div id="shop-skins" class="tab-content">
-                <div class="items-grid" id="snakeSkins-grid"></div>
+                <div class="items-grid" id="skins-grid"></div>
             </div>
         </div>
     </div>
@@ -724,7 +724,7 @@ const shopItems = {
         { id: 5, name: "Серый градиент", price: 30 },
         { id: 6, name: "Коричневый градиент", price: 35 }
     ],
-    skins: [
+    snakeSkins: [
         { id: 1, name: "Зеленая змейка", price: 0, unlocked: true },
         { id: 2, name: "Синяя змейка", price: 10 },
         { id: 3, name: "Фиолетовая змейка", price: 15 },
@@ -1977,7 +1977,7 @@ function getAvatarColor(avatarNum) {
 }
         
 function renderShopItems() {
-    const categories = ['avatars', 'backgrounds', 'skins'];
+    const categories = ['avatars', 'backgrounds', 'snakeSkins']
     
     categories.forEach(category => {
         const container = document.getElementById(`${category}-grid`);
@@ -2073,14 +2073,8 @@ function createShopItem(type, item) {
 }
 
 // Обработка клика на предмет в магазине
-async function handleShopItemClick(event, category, item) {
+async function handleShopItemClick(category, item) {
     try {
-        // Проверяем существование элемента
-        if (!event.currentTarget) {
-            console.error('Неверный элемент магазина');
-            return;
-        }
-        
         // Проверяем, что category и item существуют
         if (!category || !item || !item.id) {
             console.error('Неверные данные предмета:', {category, item});
