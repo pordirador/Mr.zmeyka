@@ -1942,27 +1942,37 @@ function getAvatarColor(avatarNum) {
         return;
     }
     
-    // Обновляем баланс
     updateCoinsDisplay();
-    
-    // Заполняем магазин
     renderShopItems();
-    
-    // Показываем модальное окно
     shopModal.style.display = 'flex';
 }
-
+        
 function renderShopItems() {
     const categories = ['avatars', 'backgrounds', 'snakeSkins'];
     
     categories.forEach(category => {
         const container = document.getElementById(`${category}-grid`);
-        if (!container) return;
+        if (!container) {
+            console.error(`Контейнер не найден: ${category}-grid`);
+            return;
+        }
         
         container.innerHTML = '';
         
+        // Проверяем существование категории в shopItems
+        if (!shopItems[category]) {
+            console.error(`Категория не найдена: ${category}`);
+            return;
+        }
+        
         shopItems[category].forEach(item => {
-            const isUnlocked = userSettings.unlockedItems[category].includes(item.id);
+            // Проверяем, что item существует и имеет id
+            if (!item || item.id === undefined) {
+                console.error('Неверные данные предмета:', item);
+                return;
+            }
+            
+            const isUnlocked = userSettings.unlockedItems[category]?.includes(item.id) || false;
             const isSelected = (category === 'snakeSkins' ? 
                 userSettings.snakeSkin : userSettings[category]) === item.id;
             
@@ -1977,7 +1987,7 @@ function renderShopItems() {
                 itemEl.textContent = item.id;
             } else if (category === 'backgrounds') {
                 itemEl.classList.add(`profile-bg-${item.id}`);
-            } else {
+            } else if (category === 'snakeSkins') {
                 itemEl.classList.add(`snake-color-${item.id}`);
             }
             
@@ -1989,55 +1999,13 @@ function renderShopItems() {
                 itemEl.appendChild(priceTag);
             }
             
-            itemEl.addEventListener('click', () => handleShopItemClick(category, item));
+            itemEl.addEventListener('click', (e) => handleShopItemClick(e, category, item));
             container.appendChild(itemEl);
         });
     });
 }
 
 // Отрисовка предметов в магазине
-function renderShopItems() {
-    const categories = ['avatars', 'backgrounds', 'snakeSkins'];
-    
-    categories.forEach(category => {
-        const container = document.getElementById(`${category}-grid`);
-        if (!container) return;
-        
-        container.innerHTML = '';
-        
-        shopItems[category].forEach(item => {
-            const isUnlocked = userSettings.unlockedItems[category].includes(item.id);
-            const isSelected = (category === 'snakeSkins' ? 
-                userSettings.snakeSkin : userSettings[category]) === item.id;
-            
-            const itemEl = document.createElement('div');
-            itemEl.className = `shop-item ${isUnlocked ? 'unlocked' : ''} ${isSelected ? 'selected' : ''}`;
-            itemEl.dataset.id = item.id;
-            itemEl.dataset.category = category;
-            
-            // Добавляем стиль в зависимости от типа
-            if (category === 'avatars') {
-                itemEl.style.background = getAvatarColor(item.id);
-                itemEl.textContent = item.id;
-            } else if (category === 'backgrounds') {
-                itemEl.classList.add(`profile-bg-${item.id}`);
-            } else {
-                itemEl.classList.add(`snake-color-${item.id}`);
-            }
-            
-            // Добавляем цену, если предмет не разблокирован
-            if (!isUnlocked) {
-                const priceTag = document.createElement('div');
-                priceTag.className = 'price-tag';
-                priceTag.textContent = item.price;
-                itemEl.appendChild(priceTag);
-            }
-            
-            itemEl.addEventListener('click', () => handleShopItemClick(category, item));
-            container.appendChild(itemEl);
-        });
-    });
-}
         
 function createShopItem(type, item) {
     // Инициализация unlockedItems, если не существует
@@ -2083,45 +2051,76 @@ function createShopItem(type, item) {
 }
 
 // Обработка клика на предмет в магазине
-async function handleShopItemClick(category, item) {
-    const isUnlocked = userSettings.unlockedItems[category].includes(item.id);
-    
-    if (isUnlocked) {
-        // Выбираем предмет
-        if (category === 'snakeSkins') {
-            userSettings.snakeSkin = item.id;
-        } else {
-            userSettings[category] = item.id;
+async function handleShopItemClick(event, category, item) {
+    try {
+        // Проверяем существование элемента
+        if (!event.currentTarget) {
+            console.error('Неверный элемент магазина');
+            return;
         }
         
-        applyProfileSettings();
-        renderShopItems();
-        await saveProfileSettings();
-        showToast(`${item.name} выбран!`);
-    } else {
-        // Пытаемся купить
-        if (userSettings.coins >= item.price) {
-            if (confirm(`Купить ${item.name} за ${item.price} монет?`)) {
-                userSettings.coins -= item.price;
-                userSettings.unlockedItems[category].push(item.id);
-                
-                // Автоматически выбираем купленный предмет
-                if (category === 'snakeSkins') {
-                    userSettings.snakeSkin = item.id;
-                } else {
-                    userSettings[category] = item.id;
-                }
-                
-                await saveProfileSettings();
-                updateCoinsDisplay();
-                renderShopItems();
-                showToast(`${item.name} куплен!`);
-            }
-        } else {
-            showToast(`Недостаточно монет! Нужно ещё ${item.price - userSettings.coins}`);
+        // Проверяем, что category и item существуют
+        if (!category || !item || !item.id) {
+            console.error('Неверные данные предмета:', {category, item});
+            return;
         }
+        
+        // Инициализируем unlockedItems, если не существует
+        if (!userSettings.unlockedItems) {
+            userSettings.unlockedItems = {
+                avatars: [1],
+                backgrounds: [1],
+                snakeSkins: [1]
+            };
+        }
+        
+        if (!userSettings.unlockedItems[category]) {
+            userSettings.unlockedItems[category] = [1];
+        }
+        
+        const isUnlocked = userSettings.unlockedItems[category].includes(item.id);
+        
+        if (isUnlocked) {
+            // Выбираем предмет
+            if (category === 'snakeSkins') {
+                userSettings.snakeSkin = item.id;
+            } else {
+                userSettings[category] = item.id;
+            }
+            
+            applyProfileSettings();
+            renderShopItems();
+            await saveProfileSettings();
+            showToast(`${item.name} выбран!`);
+        } else {
+            // Пытаемся купить
+            if (userSettings.coins >= item.price) {
+                if (confirm(`Купить ${item.name} за ${item.price} монет?`)) {
+                    userSettings.coins -= item.price;
+                    userSettings.unlockedItems[category].push(item.id);
+                    
+                    // Автоматически выбираем купленный предмет
+                    if (category === 'snakeSkins') {
+                        userSettings.snakeSkin = item.id;
+                    } else {
+                        userSettings[category] = item.id;
+                    }
+                    
+                    await saveProfileSettings();
+                    updateCoinsDisplay();
+                    renderShopItems();
+                    showToast(`${item.name} куплен!`);
+                }
+            } else {
+                showToast(`Недостаточно монет! Нужно ещё ${item.price - userSettings.coins}`);
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка в обработчике клика:', error);
+        showToast('Произошла ошибка');
     }
 }
+        
         // Функция для открытия магазина
 function openShop() {
     if (!currentUser.id) {
@@ -2177,67 +2176,7 @@ function loadShopItems(category) {
 }
 
 // Обработчик клика на товар в магазине
-async function handleShopItemClick(event) {
-    try {
-        // Получаем элемент, на который кликнули
-        const itemElement = event.currentTarget;
-        if (!itemElement || !itemElement.dataset) {
-            console.error('Invalid shop item element');
-            return;
-        }
-        
-        const type = itemElement.dataset.type;
-        const itemId = parseInt(itemElement.dataset.id);
-        
-        if (!type || isNaN(itemId)) {
-            console.error('Invalid item data:', {type, itemId});
-            return;
-        }
-        
-        // Находим предмет в магазине
-        const category = shopItems[type];
-        if (!category) {
-            console.error('Unknown item category:', type);
-            return;
-        }
-        
-        const item = category.find(i => i.id === itemId);
-        if (!item) {
-            console.error('Item not found:', {type, itemId});
-            return;
-        }
 
-        // Проверяем инвентарь
-        if (!userSettings.inventory) {
-            userSettings.inventory = {
-                avatars: [1],
-                backgrounds: [1],
-                snakeSkins: [1]
-            };
-        }
-
-        const isUnlocked = userSettings.inventory[type]?.includes(itemId);
-
-        if (isUnlocked) {
-            // Выбираем предмет
-            userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = itemId;
-            await saveProfileSettings();
-            showToast(`${item.name} выбран!`);
-            renderShopItems();
-        } else {
-            // Покупаем предмет
-            const success = await buyItem(type, itemId, item.price);
-            if (success) {
-                userSettings[type === 'snakeSkins' ? 'snakeSkin' : type] = itemId;
-                await saveProfileSettings();
-                renderShopItems();
-            }
-        }
-    } catch (error) {
-        console.error('Error in handleShopItemClick:', error);
-        showToast('Произошла ошибка');
-    }
-}
 
 // Функция покупки товара
 async function buyItem(type, itemId, price) {
@@ -2313,7 +2252,10 @@ function getSnakeSkinColor(skinId) {
 }
         function setupShopTabs() {
     const tabs = document.querySelectorAll('.shop-tab');
-    if (!tabs) return;
+    if (!tabs || tabs.length === 0) {
+        console.error('Вкладки магазина не найдены');
+        return;
+    }
     
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
@@ -2324,7 +2266,10 @@ function getSnakeSkinColor(skinId) {
             // Добавляем активный класс текущей вкладке
             tab.classList.add('active');
             const tabId = tab.dataset.tab;
-            document.getElementById(`${tabId}-tab`).classList.add('active');
+            const tabContent = document.getElementById(`${tabId}-tab`);
+            if (tabContent) {
+                tabContent.classList.add('active');
+            }
         });
     });
 }
