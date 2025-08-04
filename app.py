@@ -256,3 +256,27 @@ def health_check():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('DEBUG', 'False').lower() == 'true')
+
+@app.route('/api/inventory', methods=['PUT'])
+def update_inventory():
+    try:
+        user_id = request.cookies.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'Требуется авторизация'}), 401
+            
+        data = request.get_json()
+        if not all(k in data for k in ['type', 'item_id']):
+            return jsonify({'error': 'Неверные данные'}), 400
+            
+        ref = db.reference(f'userSettings/{user_id}/unlockedItems/{data["type"]}')
+        current_items = ref.get() or []
+        
+        if data['item_id'] not in current_items:
+            current_items.append(data['item_id'])
+            ref.set(current_items)
+            
+        return jsonify({'status': 'success'})
+        
+    except Exception as e:
+        logger.error(f"Ошибка обновления инвентаря: {str(e)}")
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
