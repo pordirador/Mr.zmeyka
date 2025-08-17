@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка25</title>
+    <title>Змейка26</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -888,7 +888,7 @@ function updateCoinsDisplay() {
     // Обновляем скины змейки
     document.querySelectorAll('.snake-skin-option').forEach(el => {
         const skinNum = parseInt(el.dataset.skin);
-        const isUnlocked = userSettings.unlockedItems.snakeSkins.includes(skinNum);
+        const isUnlocked = userSettings.unlockedItems.skins.includes(skinNum);
         
         el.classList.toggle('locked', !isUnlocked);
         el.classList.remove('selected');
