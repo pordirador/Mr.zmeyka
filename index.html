@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка22</title>
+    <title>Змейка23</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -1265,6 +1265,14 @@ function applyProfileSettings() {
         return;
     }
 
+    // ✅ Гарантируем, что inventory существует
+    if (!userSettings.inventory) {
+        userSettings.inventory = { avatars: [], backgrounds: [], snakeSkins: [] };
+    }
+    if (!userSettings.inventory.avatars) userSettings.inventory.avatars = [];
+    if (!userSettings.inventory.backgrounds) userSettings.inventory.backgrounds = [];
+    if (!userSettings.inventory.snakeSkins) userSettings.inventory.snakeSkins = [];
+
     profileIdSpan.textContent = currentUser.id.substring(0, 8) + '...';
     profileNameInput.value = currentUser.display_name;
 
@@ -1274,7 +1282,7 @@ function applyProfileSettings() {
     document.querySelector('.snake-skin-grid').innerHTML = '';
 
     // Аватары
-    (userSettings.inventory.avatars || []).forEach(avatarId => {
+    userSettings.inventory.avatars.forEach(avatarId => {
         const option = document.createElement('div');
         option.className = `avatar-option ${userSettings.avatar === avatarId ? 'selected' : ''}`;
         option.dataset.avatar = avatarId;
@@ -1285,7 +1293,7 @@ function applyProfileSettings() {
     });
 
     // Фоны
-    (userSettings.inventory.backgrounds || []).forEach(bgId => {
+    userSettings.inventory.backgrounds.forEach(bgId => {
         const option = document.createElement('div');
         option.className = `background-option profile-bg-${bgId} ${userSettings.background === bgId ? 'selected' : ''}`;
         option.dataset.bg = bgId;
@@ -1294,7 +1302,7 @@ function applyProfileSettings() {
     });
 
     // Скины змейки
-    (userSettings.inventory.snakeSkins || []).forEach(skinId => {
+    userSettings.inventory.snakeSkins.forEach(skinId => {
         const option = document.createElement('div');
         option.className = `snake-skin-option snake-color-${skinId} ${userSettings.snakeSkin === skinId ? 'selected' : ''}`;
         option.dataset.skin = skinId;
@@ -1304,6 +1312,7 @@ function applyProfileSettings() {
 
     profileModal.style.display = 'flex';
 }
+
 
 
 // Функции выбора в профиле
