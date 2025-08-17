@@ -1264,31 +1264,17 @@ function applyProfileSettings() {
         showToast('Нужно подключение к интернету');
         return;
     }
-    
-    // Инициализация inventory, если не существует
-    if (!userSettings.inventory) {
-        userSettings.inventory = {
-            avatars: [1],
-            backgrounds: [1],
-            snakeSkins: [1]
-        };
-    }
-    
-    // Обновляем данные перед показом
+
     profileIdSpan.textContent = currentUser.id.substring(0, 8) + '...';
     profileNameInput.value = currentUser.display_name;
-    
-    // Убедитесь, что настройки загружены
-    if (!userSettings.avatar) userSettings.avatar = 1;
-    if (!userSettings.background) userSettings.background = 1;
-    if (!userSettings.snakeSkin) userSettings.snakeSkin = 1;
-    
-    // Очищаем все варианты
-    document.querySelectorAll('.avatar-grid, .background-grid, .snake-skin-grid')
-        .forEach(grid => grid.innerHTML = '');
-    
-    // Показываем только купленные аватары
-    userSettings.inventory.avatars.forEach(avatarId => {
+
+    // Очищаем сетки
+    document.querySelector('.avatar-grid').innerHTML = '';
+    document.querySelector('.background-grid').innerHTML = '';
+    document.querySelector('.snake-skin-grid').innerHTML = '';
+
+    // Аватары
+    (userSettings.inventory.avatars || []).forEach(avatarId => {
         const option = document.createElement('div');
         option.className = `avatar-option ${userSettings.avatar === avatarId ? 'selected' : ''}`;
         option.dataset.avatar = avatarId;
@@ -1297,27 +1283,28 @@ function applyProfileSettings() {
         option.addEventListener('click', selectAvatar);
         document.querySelector('.avatar-grid').appendChild(option);
     });
-    
-    // Показываем только купленные фоны
-    userSettings.inventory.backgrounds.forEach(bgId => {
+
+    // Фоны
+    (userSettings.inventory.backgrounds || []).forEach(bgId => {
         const option = document.createElement('div');
         option.className = `background-option profile-bg-${bgId} ${userSettings.background === bgId ? 'selected' : ''}`;
         option.dataset.bg = bgId;
         option.addEventListener('click', selectBackground);
         document.querySelector('.background-grid').appendChild(option);
     });
-    
-    // Показываем только купленные скины змейки
-    userSettings.inventory.snakeSkins.forEach(skinId => {
+
+    // Скины змейки
+    (userSettings.inventory.snakeSkins || []).forEach(skinId => {
         const option = document.createElement('div');
         option.className = `snake-skin-option snake-color-${skinId} ${userSettings.snakeSkin === skinId ? 'selected' : ''}`;
         option.dataset.skin = skinId;
         option.addEventListener('click', selectSnakeSkin);
         document.querySelector('.snake-skin-grid').appendChild(option);
     });
-    
+
     profileModal.style.display = 'flex';
 }
+
 
 // Функции выбора в профиле
 function selectAvatar(e) {
@@ -2024,6 +2011,16 @@ function renderShopItems() {
                 priceTag.textContent = item.price;
                 itemEl.appendChild(priceTag);
             }
+            if (!isUnlocked) {
+    const priceTag = document.createElement('div');
+    priceTag.className = 'price-tag';
+    priceTag.textContent = item.price;
+    itemEl.appendChild(priceTag);
+} else {
+    // Уже куплен → сделать "unlocked" и без цены
+    itemEl.classList.add('unlocked');
+}
+
             
             itemEl.addEventListener('click', () => handleShopItemClick(category.key, item));
             container.appendChild(itemEl);
@@ -2190,61 +2187,45 @@ function loadShopItems(category) {
 
 
 // Функция покупки товара
-async function buyItem(type, itemId) {
+async function buyItem(type, id) {
+    if (userSettings.coins < 10) {
+        showToast('Недостаточно монет!');
+        return false;
+    }
+
+    // Проверка: если уже куплен — покупка не нужна
+    if (userSettings.unlockedItems[type]?.includes(id)) {
+        showToast('Этот предмет уже куплен');
+        return false;
+    }
+
+    // Списываем монеты
+    userSettings.coins -= 10;
+
+    // Добавляем в unlockedItems
+    if (!userSettings.unlockedItems[type]) userSettings.unlockedItems[type] = [];
+    userSettings.unlockedItems[type].push(id);
+
+    // Добавляем в inventory (для профиля)
+    if (!userSettings.inventory) userSettings.inventory = {};
+    if (!userSettings.inventory[type]) userSettings.inventory[type] = [];
+    userSettings.inventory[type].push(id);
+
     try {
-        // Проверяем, есть ли уже этот предмет
-        if (userSettings.unlockedItems[type].includes(itemId)) {
-            return true;
-        }
+        await db.ref(`userSettings/${currentUser.id}`).update({
+            coins: userSettings.coins,
+            [`unlockedItems/${type}`]: userSettings.unlockedItems[type],
+            [`inventory/${type}`]: userSettings.inventory[type]
+        });
 
-        // Находим цену предмета
-        const item = shopItems[type].find(i => i.id === itemId);
-        if (!item) {
-            showToast('Предмет не найден');
-            return false;
-        }
-
-        // Проверяем баланс
-        if (userSettings.coins < item.price) {
-            showToast('Недостаточно монет');
-            return false;
-        }
-
-        // Обновляем локальные данные
-        userSettings.coins -= item.price;
-        userSettings.unlockedItems[type].push(itemId);
-        
-        // Сохраняем на сервере
-        await Promise.all([
-            db.ref(`userSettings/${currentUser.id}/coins`).set(userSettings.coins),
-            db.ref(`userSettings/${currentUser.id}/unlockedItems/${type}`).set(userSettings.unlockedItems[type])
-        ]);
-
-        // Обновляем интерфейс
-        updateCoinsDisplay();
-        renderShopItems();
         showToast('Покупка успешна!');
+        applyProfileSettings();
         return true;
-        
     } catch (error) {
         console.error('Ошибка покупки:', error);
         showToast('Ошибка покупки');
         return false;
     }
-}
-        function showShopModal() {
-    if (!currentUser.id) {
-        showToast('Нужно подключение к интернету');
-        return;
-    }
-    
-    // Обновляем баланс
-    updateCoinsDisplay();  
-     
-    // Рендерим товары
-    renderShopItems(); 
-    // Показываем модальное окно
-    shopModal.style.display = 'flex'; 
 }
 
 
