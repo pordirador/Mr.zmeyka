@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка24</title>
+    <title>Змейка25</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -766,16 +766,16 @@ let userSettings = {
     coins: 0,
     avatar: 1,
     background: 1,
-    snakeSkin: 1,
+    skin: 1,
     unlockedItems: {
         avatars: ["1"],
         backgrounds: ["1"],
-        snakeSkins: ["1"]
+        skins: ["1"]
     },
     inventory: {
         avatars: ["1"],
         backgrounds: ["1"],
-        snakeSkins: ["1"]
+        skins: ["1"]
     }
 };
         
@@ -791,11 +791,11 @@ async function loadProfileSettings() {
             coins: 0,
             avatar: 1,
             background: 1,
-            snakeSkin: 1,
+            skin: 1,
             unlockedItems: {
                 avatars: [1],
                 backgrounds: [1],
-                snakeSkins: [1]
+                skins: [1]
             }
         };
 
@@ -806,7 +806,7 @@ async function loadProfileSettings() {
             if (data.coins) userSettings.coins = Number(data.coins);
             if (data.avatar) userSettings.avatar = Number(data.avatar);
             if (data.background) userSettings.background = Number(data.background);
-            if (data.snakeSkin) userSettings.snakeSkin = Number(data.snakeSkin);
+            if (data.skin) userSettings.skin = Number(data.skin);
             
             // Обновляем разблокированные предметы
             if (data.unlockedItems) {
