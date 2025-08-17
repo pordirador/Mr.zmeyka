@@ -1965,7 +1965,6 @@ function getAvatarColor(avatarNum) {
 }
         
 function renderShopItems() {
-    items.forEach(category => {
         const container = document.getElementById(`${category.id}-items`);
         if (!container) return;
         container.innerHTML = '';
@@ -2005,7 +2004,7 @@ function renderShopItems() {
             container.appendChild(itemEl);
         });
     });
-}
+
 
 // Отрисовка предметов в магазине
         
