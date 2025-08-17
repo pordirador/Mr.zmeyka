@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Змейка23</title>
+    <title>Змейка24</title>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -1060,33 +1060,25 @@ function applyProfileBackground() {
 
 // Сохранение профиля
 async function updateProfile() {
-    const newName = profileNameInput.value.trim();
-    if (newName.length < 2) {
-        showToast('Имя слишком короткое');
-        return;
-    }
-    
     try {
-        // Сохраняем настройки
-        await db.ref(`userSettings/${currentUser.id}`).set(userSettings);
-        
-        // Обновляем имя пользователя
-        await db.ref(`users/${currentUser.id}`).update({
-            display_name: newName
+        await db.ref(`userSettings/${currentUser.id}`).update({
+            coins: userSettings.coins,
+            avatar: userSettings.avatar,
+            background: userSettings.background,
+            snakeSkin: userSettings.snakeSkin,
+            unlockedItems: userSettings.unlockedItems,
+            inventory: userSettings.inventory
         });
-        
-        currentUser.display_name = newName;
-        updateProfileButton();
-        profileModal.style.display = 'none';
-        showToast('Настройки сохранены!');
-        
-        // Применяем изменения
+
+        showToast('Профиль обновлён!');
+        applyProfileSettings();
         applyProfileBackground();
-        if (gameActive) draw(); // Перерисовываем змейку, если игра активна
     } catch (error) {
-        showToast('Ошибка сохранения');
+        console.error('Ошибка обновления профиля:', error);
+        showToast('Ошибка обновления профиля');
     }
 }
+
         // ========== ИНИЦИАЛИЗАЦИЯ ==========
         async function init() {
     // Настройка обработчиков событий для кнопок
@@ -1973,65 +1965,43 @@ function getAvatarColor(avatarNum) {
 }
         
 function renderShopItems() {
-    const categories = [
-        { id: 'avatars', key: 'avatars' },
-        { id: 'backgrounds', key: 'backgrounds' },
-        { id: 'skins', key: 'skins' } // Используем 'skins' вместо 'snakeSkins'
-    ];
-    
     categories.forEach(category => {
-        const container = document.getElementById(`${category.id}-grid`);
-        if (!container) {
-            console.error(`Контейнер не найден: ${category.id}-grid`);
-            return;
-        }
-        
+        const container = document.getElementById(`${category.id}-items`);
+        if (!container) return;
         container.innerHTML = '';
-        
-        if (!shopItems[category.key]) {
-            console.error(`Категория не найдена: ${category.key}`);
-            return;
-        }
-        
-        shopItems[category.key].forEach(item => {
-            const isUnlocked = userSettings.unlockedItems[category.key]?.includes(item.id.toString());
-            const isSelected = (category.key === 'skins' ? 
-                userSettings.snakeSkin : userSettings[category.key]) === item.id;
-            
+
+        const items = shopItems[category.key];
+        if (!items) return;
+
+        items.forEach(item => {
+            const isUnlocked = userSettings.unlockedItems[category.key]?.includes(item.id);
             const itemEl = document.createElement('div');
-            itemEl.className = `shop-item ${isUnlocked ? 'unlocked' : ''} ${isSelected ? 'selected' : ''}`;
-            itemEl.dataset.id = item.id;
-            itemEl.dataset.category = category.key;
-            
-            // Добавляем стиль в зависимости от типа
-            if (category.key === 'avatars') {
-                itemEl.style.background = getAvatarColor(item.id);
-                itemEl.textContent = item.id;
-            } else if (category.key === 'backgrounds') {
-                itemEl.classList.add(`profile-bg-${item.id}`);
-            } else if (category.key === 'skins') {
-                itemEl.classList.add(`snake-color-${item.id}`);
+            itemEl.className = 'shop-item';
+
+            if (isUnlocked) {
+                itemEl.classList.add('unlocked');
             }
-            
-            // Добавляем цену, если предмет не разблокирован
+
+            itemEl.textContent = item.name;
+
+            // Показываем цену только если предмет не куплен
             if (!isUnlocked) {
                 const priceTag = document.createElement('div');
                 priceTag.className = 'price-tag';
                 priceTag.textContent = item.price;
                 itemEl.appendChild(priceTag);
             }
-            if (!isUnlocked) {
-    const priceTag = document.createElement('div');
-    priceTag.className = 'price-tag';
-    priceTag.textContent = item.price;
-    itemEl.appendChild(priceTag);
-} else {
-    // Уже куплен → сделать "unlocked" и без цены
-    itemEl.classList.add('unlocked');
-}
 
-            
-            itemEl.addEventListener('click', () => handleShopItemClick(category.key, item));
+            // Клик по предмету
+            itemEl.addEventListener('click', async () => {
+                if (!isUnlocked) {
+                    const success = await buyItem(category.key, item.id);
+                    if (success) renderShopItems();
+                } else {
+                    showToast('Этот предмет уже есть у вас');
+                }
+            });
+
             container.appendChild(itemEl);
         });
     });
@@ -2202,7 +2172,7 @@ async function buyItem(type, id) {
         return false;
     }
 
-    // Проверка: если уже куплен — покупка не нужна
+    // Проверка: если уже куплен
     if (userSettings.unlockedItems[type]?.includes(id)) {
         showToast('Этот предмет уже куплен');
         return false;
@@ -2215,7 +2185,7 @@ async function buyItem(type, id) {
     if (!userSettings.unlockedItems[type]) userSettings.unlockedItems[type] = [];
     userSettings.unlockedItems[type].push(id);
 
-    // Добавляем в inventory (для профиля)
+    // Добавляем в inventory
     if (!userSettings.inventory) userSettings.inventory = {};
     if (!userSettings.inventory[type]) userSettings.inventory[type] = [];
     userSettings.inventory[type].push(id);
@@ -2228,7 +2198,11 @@ async function buyItem(type, id) {
         });
 
         showToast('Покупка успешна!');
+
+        // Обновляем интерфейс
         applyProfileSettings();
+        applyProfileBackground();
+
         return true;
     } catch (error) {
         console.error('Ошибка покупки:', error);
